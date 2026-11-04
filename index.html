@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07080d">
+<title>riftvault — coleções de Riftbound</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23120f1d'/%3E%3Cpath d='M20 46V18h13a9 9 0 0 1 0 18h-4l10 10h-8l-9-10v-6h10a3 3 0 0 0 0-6h-6v22z' fill='%23a77bff'/%3E%3C/svg%3E">
+<script>
+  /* Um favorito antigo aponta para a raiz com a rota no `#`
+     (`#colecao/UNL`). O `#` nunca chega ao servidor, por isso quem
+     o pode apanhar é só o browser. Cego ao nome da secção de
+     propósito: uma rota nova é reencaminhada sozinha. */
+  (function () {
+    var h = location.hash;
+    if (h && h.length > 1) location.replace('u/baverone/' + h);
+  })();
+</script>
+<style>
+  :root {
+    --bg: #07080d; --card2: #0e1018; --card: #12151f; --card3: #171b28;
+    --ink: #eef0f6; --ink2: #c8cede; --muted: #8c93a8;
+    --line: rgba(255,255,255,.07); --line2: rgba(255,255,255,.13);
+    --accent: #a77bff; --accent-ink: #0b0713; --accent-soft: #1d1430;
+    --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-hd: 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 var(--font);
+    /* O telemóvel é o sítio onde ele usa isto. */
+    padding: 32px 20px 64px; padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+  .l-wrap { max-width: 980px; margin: 0 auto; }
+  /* O caminho de volta (20/10/2026, achado R6): as coleções têm-no, a lista
+     não tinha nenhum — os únicos links eram os cartões. */
+  .l-casa {
+    display: inline-block; margin-bottom: 14px; padding: 6px 0;
+    color: var(--muted); font-size: 13px; font-weight: 600; text-decoration: none;
+  }
+  .l-casa:hover, .l-casa:focus-visible { color: var(--accent); }
+  .l-topo { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .l-logo {
+    width: 38px; height: 38px; border-radius: 10px; flex: 0 0 auto;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center;
+    font: 700 20px/1 var(--font-hd);
+  }
+  h1 { font: 700 26px/1.2 var(--font-hd); margin: 0; letter-spacing: -.01em; }
+  .l-sub-topo { color: var(--muted); margin: 0 0 28px 50px; font-size: 14px; }
+  .l-grelha {
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+  .l-cartao {
+    display: block; text-decoration: none; color: inherit;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 18px;
+  }
+  .l-cartao:hover, .l-cartao:focus-visible {
+    border-color: var(--accent); background: var(--card3);
+  }
+  .l-ini {
+    display: grid; place-items: center; width: 34px; height: 34px;
+    border-radius: 9px; background: var(--accent); color: var(--accent-ink);
+    font: 700 16px/1 var(--font-hd); margin-bottom: 10px;
+  }
+  .l-cartao h2 { font: 600 19px/1.25 var(--font-hd); margin: 0 0 12px; }
+  .l-barra {
+    height: 5px; border-radius: 99px; background: var(--card3);
+    overflow: hidden; margin-bottom: 8px;
+  }
+  .l-barra span { display: block; height: 100%; background: var(--accent); }
+  .l-num { margin: 0 0 4px; font-size: 15px; }
+  .l-num b { font: 600 17px/1 var(--font-hd); }
+  .l-de, .l-rot { color: var(--muted); font-size: 13px; }
+  .l-sub { margin: 0 0 2px; color: var(--ink2); font-size: 13px; }
+  .l-ir { display: block; margin-top: 12px; color: var(--accent); font-size: 13px; }
+  .l-vazio {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 20px; color: var(--muted); max-width: 62ch;
+  }
+  .l-rodape { margin-top: 32px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 480px) {
+    body { padding: 20px 14px 48px; }
+    .l-grelha { grid-template-columns: 1fr; }
+  }
+</style>
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="googlebot" content="noindex, nofollow">
+</head>
+<body>
+  <div class="l-wrap">
+    <a class="l-casa" href="https://baverone.com">← baverone.com</a>
+    <div class="l-topo">
+      <span class="l-logo" aria-hidden="true">R</span>
+      <h1>riftvault</h1>
+    </div>
+    <p class="l-sub-topo">Coleções de Riftbound · 3 coleções · só leitura</p>
+    <div class="l-grelha">
+      <a class="l-cartao" href="u/baverone/"><span class="l-ini" aria-hidden="true">A</span><h2>André</h2><div class="l-barra"><span style="width:92.4%"></span></div><p class="l-num"><b>1 012</b><span class="l-de"> de 1 095</span> <span class="l-rot">impressões em playset</span></p><p class="l-sub">1 092 cartas · 4 269 cópias</p><span class="l-ir">ver a coleção →</span></a>
+      <a class="l-cartao" href="u/goncalves/"><span class="l-ini" aria-hidden="true">G</span><h2>Gonçalves</h2><div class="l-barra"><span style="width:55.4%"></span></div><p class="l-num"><b>607</b><span class="l-de"> de 1 095</span> <span class="l-rot">impressões em playset</span></p><p class="l-sub">759 cartas · 2 116 cópias</p><span class="l-ir">ver a coleção →</span></a>
+      <a class="l-cartao" href="u/miguel/"><span class="l-ini" aria-hidden="true">M</span><h2>Miguel Valente</h2><div class="l-barra"><span style="width:0.5%"></span></div><p class="l-num"><b>5</b><span class="l-de"> de 1 095</span> <span class="l-rot">impressões em playset</span></p><p class="l-sub">6 cartas · 15 cópias</p><span class="l-ir">ver a coleção →</span></a>
+    </div>
+    <p class="l-rodape">Cada coleção é de quem a organiza. Quem não escolheu
+      publicar não aparece aqui.</p>
+  </div>
+</body>
+</html>
