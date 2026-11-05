@@ -1810,6 +1810,16 @@ body.readonly .btn.chegou { display: none; }
 .vd-hit .cd { font-size: 12px; color: var(--muted); }
 .vd-hit .var { color: var(--accent); font-style: normal; font-size: 12px; }
 
+.vd-hit-acabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.vd-acab { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
+.vd-refs { font-size: 12px; color: var(--muted); }
+.vd-chip { min-height: 32px; padding: 2px 10px; border-radius: 8px; display: inline-flex;
+  align-items: center; gap: 6px; background: transparent; border: 1px solid var(--line2);
+  color: var(--muted); font: 600 12px var(--font); }
+button.vd-chip { cursor: pointer; }
+button.vd-chip:hover, button.vd-chip:focus-visible { border-color: var(--accent); color: var(--ink); }
+.vd-chip.foil { color: #c9a9ff; border-color: var(--accent-line); }
+.vd-chip b { color: var(--ink); }
 .vd-linhas { display: grid; gap: 10px; }
 .vd-linha { display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 12px;
   align-items: start; background: var(--card); border: 1px solid var(--line);

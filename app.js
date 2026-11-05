@@ -346,22 +346,19 @@ const PAGINA = {
   },
   'venda': {
     sub: 'O que estás a vender agora e a conta para quem compra. '
-       + 'Os preços são o <b>Trend do Cardmarket</b>, metido por ti.',
-    sub_ro: 'A venda que estava em curso quando o site foi gerado. '
-          + 'Os preços são o Trend do Cardmarket, metido à mão.',
-    ajuda: '<p>O preço de cada linha é o <b>Trend do Cardmarket</b> e tens de ser tu a '
-         + 'metê-lo: a app <b>não tem preços do Cardmarket</b> e não os pode ter — a API '
-         + 'oficial deles está fechada a novas candidaturas e o site responde 403 a pedidos '
-         + 'automáticos. Cada linha tem o link para a página da carta lá: abres, vês o '
-         + 'Trend, escreves.</p>'
+       + 'Os preços são o <b>Trend do Cardmarket</b> do dia, Foil e Não Foil.',
+    sub_ro: 'A venda que estava em curso quando o site foi gerado.',
+    ajuda: '<p>O preço de cada linha é o <b>Trend do Cardmarket</b>, do guia oficial que se '
+         + 'guarda todas as madrugadas: a <b>foil e a normal</b> da mesma carta são linhas '
+         + 'diferentes, cada uma com o seu preço. Escrever noutro valor substitui o Trend '
+         + 'nessa linha; apagar o campo devolve o do guia.</p>'
          + '<p>O preço do <b>CardTrader</b> que aparece ao lado é a oferta mais barata de '
          + 'lá, não um Trend — é só referência e <b>nunca entra na conta</b>. Uma linha sem '
          + 'Trend vale <b>zero</b> e o total diz quantas faltam; não se substitui por nada.</p>'
          + '<p>Marcar cartas para venda <b>não tira nada</b> da coleção: não mexe nos níveis, '
          + 'nas Faltas, no valor, nos decks nem no A mais. Quem baixa as cópias é o botão '
          + '<b>Marcar como vendidas</b>, que pede confirmação e fica no registo.</p>'
-         + '<p>O Trend fica guardado por impressão com a data, para a venda seguinte já vir '
-         + 'preenchida. Passados uns dias aparece marcado como velho — vale a pena '
+         + '<p>Um preço com alguns dias aparece marcado como velho — vale a pena '
          + 'confirmá-lo antes de cobrar.</p>',
   },
   'selado': {
@@ -6368,11 +6365,11 @@ function renderVenda() {
     <div class="deck-meta">
       <span><i>Total</i><b class="vd-total">${eur(t.cents)}</b></span>
       ${state.editable
-        ? `<span><i>Preços</i>Trend do Cardmarket, metido por ti</span>
+        ? `<span><i>Preços</i>Trend do Cardmarket do dia, Foil e Não Foil</span>
       <span><i>Coleção</i>não mexe até carregares em «marcar como vendidas»</span>`
         // Na cópia só de leitura não há botões nem quem os carregue (20/10/2026,
-        // achado R5): diz-se o mesmo que o `sub_ro` desta secção.
-        : `<span><i>Preços</i>Trend do Cardmarket, metido à mão</span>
+        // achado R5), e desde 04/11/2026 também não há preços.
+        : `<span><i>Preços</i>só no modo de edição</span>
       <span><i>Coleção</i>não mexe enquanto as cartas não forem marcadas como vendidas</span>`}
     </div>
     ${avisos.length ? `<small class="nota vd-avisos">${avisos.join('<br>')}</small>` : ''}
@@ -6449,13 +6446,26 @@ function vdLinha(x) {
       escapeHTML(deckCurto(x.origem_deck))}${x.preco_criterio != null
         ? ` · ${eur(x.preco_criterio)}${x.criterio_foil ? ' foil' : ''}` : ''}</span>`);
   }
-  return `<div class="vd-linha ${cls}" data-pid="${escapeAttr(x.printing_id)}">
+  // À mão não é o do guia, e a linha di-lo: é um preço que ele escolheu cobrar.
+  if (x.trend_fonte === 'manual') {
+    marcas.push('<span class="vd-marca origem">preço à mão</span>');
+  }
+  const acab = x.foil ? 'Foil' : 'Não Foil';
+  const refs = [x.from_cents != null ? `From ${eur(x.from_cents)}` : '',
+                x.avg7_cents != null ? `7 dias ${eur(x.avg7_cents)}` : ''].filter(Boolean);
+  return `<div class="vd-linha ${cls}" data-pid="${escapeAttr(x.printing_id)}" data-foil="${x.foil ? 1 : 0}">
     ${artHTML(x, `<span class="need">${x.qty}×</span>`)}
     <div class="vd-meio">
       <div class="tname" title="${escapeAttr(x.name)}">${escapeHTML(x.name)}${
         x.label && x.label !== 'Base' ? ` <i class="var">${escapeHTML(x.label)}</i>` : ''}</div>
       <div class="codigo">${escapeHTML((x.code || '').split('/')[0])} ·
         ${escapeHTML(x.set_name)}</div>
+      <div class="vd-acab">${state.editable && !x.so_foil && !x.so_normal
+        ? `<button type="button" class="vd-chip${x.foil ? ' foil' : ''}" data-vd-acab
+             title="passar esta linha para ${x.foil ? 'Não Foil' : 'Foil'}"
+             aria-label="${escapeAttr(x.name)}: ${acab}. Passar para ${x.foil ? 'Não Foil' : 'Foil'}">${acab}</button>`
+        : `<span class="vd-chip${x.foil ? ' foil' : ''}">${acab}</span>`}
+        ${refs.length ? `<span class="vd-refs">${refs.join(' · ')}</span>` : ''}</div>
       <div class="vd-links">
         <a href="${escapeAttr(x.url)}" target="_blank" rel="noreferrer noopener">Cardmarket</a>
         <a href="${escapeAttr(x.url_busca)}" target="_blank" rel="noreferrer noopener"
@@ -6488,12 +6498,18 @@ function vdLigarLinhas() {
     b.onclick = () => vdLimparOrigem(b.dataset.vdOrigem);
   }
   for (const b of document.querySelectorAll('#vd-body .step[data-vd]')) {
-    b.onclick = () => vdAjustar(b.closest('.vd-linha').dataset.pid, Number(b.dataset.vd));
+    const l = b.closest('.vd-linha');
+    b.onclick = () => vdAjustar(l.dataset.pid, Number(b.dataset.vd), l.dataset.foil === '1');
+  }
+  for (const b of document.querySelectorAll('#vd-body [data-vd-acab]')) {
+    const l = b.closest('.vd-linha');
+    b.onclick = () => vdAcabamento(l.dataset.pid, l.dataset.foil === '1');
   }
   for (const i of document.querySelectorAll('#vd-body input[data-trend]')) {
     // No `change` (Enter ou sair do campo), não a cada tecla: gravar a meio de
     // «12,5» punha lá 12 e redesenhava a linha por baixo dos dedos dele.
-    i.onchange = () => vdTrend(i.closest('.vd-linha').dataset.pid, i.value);
+    const l = i.closest('.vd-linha');
+    i.onchange = () => vdTrend(l.dataset.pid, i.value, l.dataset.foil === '1');
     i.onkeydown = e => { if (e.key === 'Enter') i.blur(); };
   }
 }
@@ -6517,15 +6533,21 @@ async function venderDaGrelha(pid, nome) {
   } catch (err) { toast(err.message, { error: true }); }
 }
 
-async function vdAjustar(pid, delta) {
+async function vdAjustar(pid, delta, foil) {
   try {
-    await vdPost('api/venda/linha', { printing_id: pid, delta });
+    await vdPost('api/venda/linha', { printing_id: pid, delta, foil: !!foil });
   } catch (err) { toast(err.message, { error: true }); }
 }
 
-async function vdTrend(pid, valor) {
+async function vdTrend(pid, valor, foil) {
   try {
-    await vdPost('api/venda/trend', { printing_id: pid, eur: valor });
+    await vdPost('api/venda/trend', { printing_id: pid, eur: valor, foil: !!foil });
+  } catch (err) { toast(err.message, { error: true }); }
+}
+
+async function vdAcabamento(pid, foil) {
+  try {
+    await vdPost('api/venda/acabamento', { printing_id: pid, foil: !!foil });
   } catch (err) { toast(err.message, { error: true }); }
 }
 
@@ -6551,6 +6573,14 @@ function vdLigarProcura() {
   });
 }
 
+/* Um botão por acabamento, com o preço à vista: é aqui que ele escolhe qual tem na mão. */
+function vdHitBotao(x, foil) {
+  const c = foil ? x.trend_foil : x.trend_normal;
+  return `<button type="button" class="vd-chip${foil ? ' foil' : ''}" data-vd-hit
+    data-pid="${escapeAttr(x.printing_id)}" data-foil="${foil ? 1 : 0}">${
+    foil ? 'Foil' : 'Não Foil'} <b>${c != null ? eur(c) : '—'}</b></button>`;
+}
+
 async function vdProcurar(q) {
   const alvo = $('#vd-res');
   if (!alvo) return;
@@ -6558,16 +6588,19 @@ async function vdProcurar(q) {
   try {
     const r = await getJSON('api/venda/procurar?q=' + encodeURIComponent(q));
     alvo.innerHTML = r.items.length
-      ? r.items.map(x => `<button type="button" class="vd-hit" data-pid="${escapeAttr(x.printing_id)}">
+      ? r.items.map(x => `<div class="vd-hit">
           <span class="nm">${escapeHTML(x.name)}${x.label && x.label !== 'Base'
             ? ` <i class="var">${escapeHTML(x.label)}</i>` : ''}</span>
           <span class="cd">${escapeHTML((x.code || '').split('/')[0])} · ${escapeHTML(x.set_name)}
             · tens ${x.have}${x.na_venda ? ` · ${x.na_venda} na venda` : ''}</span>
-        </button>`).join('')
+          <span class="vd-hit-acabs">
+            ${x.so_foil ? '' : vdHitBotao(x, false)}${x.so_normal ? '' : vdHitBotao(x, true)}
+          </span>
+        </div>`).join('')
       : '<p class="empty">Nada com esse nome ou código.</p>';
-    for (const b of alvo.querySelectorAll('.vd-hit')) {
+    for (const b of alvo.querySelectorAll('[data-vd-hit]')) {
       b.onclick = async () => {
-        await vdAjustar(b.dataset.pid, 1);
+        await vdAjustar(b.dataset.pid, 1, b.dataset.foil === '1');
         $('#vd-q').value = '';
         $('#vd-res').innerHTML = '';
         $('#vd-q').focus();
@@ -6584,7 +6617,7 @@ function renderVdConta() {
   const t = p.totals;
   if (!p.items.length) { $('#vd-conta').innerHTML = ''; return; }
   const linhas = p.items.map(x => `<tr${x.trend == null ? ' class="r-sem"' : ''}>
-    <td class="v-nome" data-l="Carta">${escapeHTML(x.name)}</td>
+    <td class="v-nome" data-l="Carta">${escapeHTML(x.name)}${x.foil ? ' <i class="var">Foil</i>' : ''}</td>
     <td data-l="Edição">${escapeHTML(x.set)}</td>
     <td data-l="Nº">${escapeHTML((x.code || '').split('/')[0])}</td>
     <td data-l="Qtd">${x.qty}×</td>
