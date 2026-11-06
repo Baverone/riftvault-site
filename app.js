@@ -100,8 +100,8 @@ const state = {
   // O separador «A mais» (2026-09-17): `api/a_mais.json`.
   aMais: null,
   // O separador «Venda» (2026-09-25): a venda em curso (`api/venda.json`).
-  // Só o `renderVenda` o lê — marcar cartas para venda não conta para nada, e
-  // as cópias só descem no «marcar como vendidas».
+  // Só o `renderVenda` o lê — o que ele vende não é da Coleção (2026-11-06), e
+  // só a linha de um deck desfeito baixa cópias, no «marcar como vendidas».
   venda: null,
   // O separador «Produto Selado» (2026-09-25): `api/selado.json`. Só o
   // `renderSelado` o lê — o selado NÃO entra na Coleção (nem níveis, nem
@@ -355,9 +355,10 @@ const PAGINA = {
          + '<p>O preço do <b>CardTrader</b> que aparece ao lado é a oferta mais barata de '
          + 'lá, não um Trend — é só referência e <b>nunca entra na conta</b>. Uma linha sem '
          + 'Trend vale <b>zero</b> e o total diz quantas faltam; não se substitui por nada.</p>'
-         + '<p>Marcar cartas para venda <b>não tira nada</b> da coleção: não mexe nos níveis, '
-         + 'nas Faltas, no valor, nos decks nem no A mais. Quem baixa as cópias é o botão '
-         + '<b>Marcar como vendidas</b>, que pede confirmação e fica no registo.</p>'
+         + '<p>As cartas que vendes são <b>cartas a mais</b>, não são da coleção: vender '
+         + 'não mexe nos níveis, nas Faltas, no valor, nos decks nem no A mais. O botão '
+         + '<b>Marcar como vendidas</b> fecha a venda e guarda-a no registo. Só uma linha '
+         + 'que veio de um deck desfeito baixa as cópias próprias desse deck.</p>'
          + '<p>Um preço com alguns dias aparece marcado como velho — vale a pena '
          + 'confirmá-lo antes de cobrar.</p>',
   },
@@ -1736,7 +1737,7 @@ function maisTeclaDupla(btn) {
    nas cartas de que ele TEM alguma cópia — não se vende o que não se tem, e
    um botão em todos os 1180 tiles era ruído. Junta uma cópia desta IMPRESSÃO
    à venda em curso (a versão que tem na mão é a que ele carrega) e não tira
-   nada de lado nenhum: a coleção só desce no «marcar como vendidas». */
+   nada de lado nenhum: o que ele vende não é da coleção (2026-11-06). */
 function venderLinha(pid) {
   if (!state.editable || !(state.tot.get(pid) || 0)) return '';
   return `<button type="button" class="vd-add" data-vender="1"
@@ -6367,12 +6368,12 @@ function renderVenda() {
       <span><i>Total</i><b class="vd-total">${eur(t.cents)}</b></span>
       ${state.editable
         ? `<span><i>Preços</i>Trend do Cardmarket do dia, Foil e Não Foil</span>
-      <span><i>Coleção</i>não mexe até carregares em «marcar como vendidas»</span>`
+      <span><i>Coleção</i>não mexe: estas cartas não são da coleção</span>`
         // Na cópia só de leitura não há botões nem quem os carregue (20/10/2026,
         // achado R5), e desde 04/11/2026 também não há preços: a frase diz
         // isso em vez de repetir a frase do Trend do modo de edição.
         : `<span><i>Preços</i>só no modo de edição</span>
-      <span><i>Coleção</i>não mexe enquanto as cartas não forem marcadas como vendidas</span>`}
+      <span><i>Coleção</i>não mexe: estas cartas não são da coleção</span>`}
     </div>
     ${avisos.length ? `<small class="nota vd-avisos">${avisos.join('<br>')}</small>` : ''}
     ${vdOrigens(t)}
@@ -6438,6 +6439,10 @@ function vdLinha(x) {
   }
   if (x.trend != null && x.trend_velho) {
     marcas.push(`<span class="vd-marca velho">Trend de há ${plural(x.trend_dias, 'dia', 'dias')}</span>`);
+  }
+  // Marca, não muda: um Trend abaixo do mais barato à venda não se cobra sem olhar.
+  if (x.trend_abaixo_do_from) {
+    marcas.push('<span class="vd-marca av">Trend abaixo do From</span>');
   }
   // DE ONDE VEIO (2026-09-27): esta linha não foi ele que a marcou — veio de
   // um deck que deixou de ser principal, e o preço que a pôs aqui é este.
@@ -6593,8 +6598,8 @@ async function vdProcurar(q) {
       ? r.items.map(x => `<div class="vd-hit">
           <span class="nm">${escapeHTML(x.name)}${x.label && x.label !== 'Base'
             ? ` <i class="var">${escapeHTML(x.label)}</i>` : ''}</span>
-          <span class="cd">${escapeHTML((x.code || '').split('/')[0])} · ${escapeHTML(x.set_name)}
-            · tens ${x.have}${x.na_venda ? ` · ${x.na_venda} na venda` : ''}</span>
+          <span class="cd">${escapeHTML((x.code || '').split('/')[0])} · ${escapeHTML(x.set_name)}${
+            x.na_venda ? ` · ${x.na_venda} na venda` : ''}</span>
           <span class="vd-hit-acabs">
             ${x.so_foil ? '' : vdHitBotao(x, false)}${x.so_normal ? '' : vdHitBotao(x, true)}
           </span>
@@ -6672,12 +6677,13 @@ function renderVdConta() {
     catch (err) { toast(err.message, { error: true }); }
   };
 
-  // «Marcar como vendidas» é o único botão desta página que mexe na coleção:
-  // pede confirmação, diz o que vai baixar, e o servidor recusa sem o
-  // `confirmar` (409). Não é automático em circunstância nenhuma.
+  // «Marcar como vendidas» pede confirmação, e o servidor recusa sem o
+  // `confirmar` (409). A coleção não desce (2026-11-06); só as linhas de um deck
+  // desfeito baixam as cópias próprias dele, e o aviso di-lo.
   $('#vd-vender').onclick = async () => {
     const aviso = `Marcar como vendidas?\n\n`
-      + `Isto BAIXA ${plural(t.copies, 'cópia', 'cópias')} da coleção`
+      + `Fecha a venda de ${plural(t.copies, 'carta', 'cartas')} e guarda-a no registo. A coleção não mexe.`
+      + (t.baixa_copias ? `\nBaixam ${plural(t.baixa_copias, 'cópia própria', 'cópias próprias')} de decks desfeitos.` : '')
       + (t.sem_trend ? `\n${plural(t.sem_trend, 'linha', 'linhas')} sem Trend — vão a zero.` : '')
       + `\n\nTotal a cobrar: ${eur(t.cents).replace(/ /g, ' ')}`;
     if (!confirm(aviso)) return;
@@ -6686,12 +6692,14 @@ function renderVdConta() {
       const v = res.vendida;
       toast(`Vendidas ${plural(v.copies, 'cópia', 'cópias')} · ${eur(v.totals.cents)}`
             + (v.em_falta ? ` (faltaram ${v.em_falta})` : ''), { ms: 9000 });
-      // As cópias baixaram: a Coleção, as listas de compra e os decks ficam
-      // por reler, como depois de um «Chegou» das Encomendas.
-      state.colecaoVelha = true;
-      wlDesatualizar();
-      state.compras = null; state.faltasEdicao = null; state.aMais = null;
-      state.decks = null; state.enc.payload = null; state.enc.resumo = null;
+      // Só com cópias de decks a descer é que a Coleção, as listas de compra e os
+      // decks ficam por reler, como depois de um «Chegou» das Encomendas.
+      if (v.baixadas) {
+        state.colecaoVelha = true;
+        wlDesatualizar();
+        state.compras = null; state.faltasEdicao = null; state.aMais = null;
+        state.decks = null; state.enc.payload = null; state.enc.resumo = null;
+      }
     } catch (err) { toast(err.message, { error: true }); }
   };
 }
