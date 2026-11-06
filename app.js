@@ -742,8 +742,8 @@ function renderConta() {
     <small>a tua coleção · <span id="ct-priv">${escapeHTML(priv[u.publico] || u.publico || '')}</span></small>
     <select class="conta-sel" id="ct-publico" aria-label="Quem vê a minha coleção">
       <option value="nada"${u.publico === 'nada' ? ' selected' : ''}>Só eu</option>
-      <option value="sem-valores"${u.publico === 'sem-valores' ? ' selected' : ''}>Pública, sem os valores em €</option>
-      <option value="tudo"${u.publico === 'tudo' ? ' selected' : ''}>Pública, com tudo</option>
+      <option value="sem-valores"${u.publico === 'sem-valores' ? ' selected' : ''}>Pública (o site público não mostra valores em €)</option>
+      <option value="tudo"${u.publico === 'tudo' ? ' selected' : ''}>Pública, igual à anterior (nenhum valor em € aparece no público)</option>
     </select>
     <details class="conta-det"><summary>Trocar a password</summary>
       ${trocaHTML(false)}
@@ -2033,7 +2033,7 @@ function foilNotaValor(curto) {
     pf.copies ? 'contam' : 'cópias foil estão contadas'} <b>ao preço da versão
     normal</b>, por o CardTrader não ter oferta foil delas — esse pedaço é um
     <b>piso</b> e o real é mais alto.${
-      (f.sem_preco || {}).copies
+      (f.sem_preco || {}).copies && !semEuros()
         ? ` ${f.sem_preco.copies} sem preço no CardTrader não contam.` : ''}`;
 }
 
@@ -2809,7 +2809,8 @@ function renderWantlists() {
 function wlBloco(id, titulo, itens, nota, nivel) {
   const copias = itens.reduce((s, x) => s + cmQtd(x), 0);
   const cents = itens.reduce((s, x) => s + (x.total || 0), 0);
-  const semPreco = itens.filter(x => x.price == null).length;
+  // No site público o preço existe e não se mostra: «sem preço» seria falso.
+  const semPreco = semEuros() ? 0 : itens.filter(x => x.price == null).length;
   if (!itens.length) {
     return `<section class="wl-bloco" id="${id}">
       <h2 class="section-head wl-head">${titulo}</h2>
@@ -2820,7 +2821,7 @@ function wlBloco(id, titulo, itens, nota, nivel) {
   return `<section class="wl-bloco" id="${id}">
     <h2 class="section-head wl-head">${titulo}
       <span>${itens.length} impress${itens.length === 1 ? 'ão' : 'ões'} ·
-        ${copias} cópia${copias === 1 ? '' : 's'} · ${eur(cents)}${
+        ${copias} cópia${copias === 1 ? '' : 's'}${semEuros() ? '' : ` · ${eur(cents)}`}${
         semPreco ? ` · ${semPreco} sem preço no CardTrader` : ''}</span></h2>
     ${wlSeletorHTML(nivel)}
     <p class="note">${nota}</p>
@@ -2858,7 +2859,7 @@ function renderFaltaLinha() {
   const menos = nv && nv.missing > d.copies;
   const mais = nv && nv.missing < d.copies;
   el.innerHTML = `<b>${d.copies}</b> cópia${d.copies === 1 ? '' : 's'}
-    <b>a comprar</b> nesta edição · <b>${eur(d.cents)}</b> ao preço de hoje —
+    <b>a comprar</b> nesta edição${semEuros() ? '' : ` · <b>${eur(d.cents)}</b> ao preço de hoje`} —
     <a href="#wl-edicao">wantlist para o Cardmarket</a>${menos
       ? `<br><small>São menos do que as <b>${nv.missing}</b> cópias que faltam
          ao playset do master set: a lista de compra não leva showcases e já
@@ -4988,7 +4989,7 @@ function renderInicio() {
   const fl = fe && fe.totals_lists;
   cartoes += iniCartao('gold', 'faltas', 'Falta comprar',
     fl ? `${num(fl.copies)}<small> cópias</small>` : tr,
-    fl ? `${eur(fl.cents)} ao preço de hoje · ${plural(fl.cards, 'carta', 'cartas')}.
+    fl ? `${semEuros() ? '' : `${eur(fl.cents)} ao preço de hoje · `}${plural(fl.cards, 'carta', 'cartas')}.
           Só o <b>master set</b> — a coleção extra compra-se pela lista do bloco.`
        : 'a carregar as faltas…');
 
@@ -5039,7 +5040,7 @@ function renderInicio() {
     ? { copies: fe.totals.copies - fl.copies, cents: fe.totals.cents - fl.cents } : null;
   cartoes += iniCartao('', 'amais', 'Coleção extra',
     extra ? `${num(extra.copies)}<small> cópias</small>` : tr,
-    extra ? `alt art, sobrenumeradas e promos por fechar — ${eur(extra.cents)}.
+    extra ? `alt art, sobrenumeradas e promos por fechar${semEuros() ? '' : ` — ${eur(extra.cents)}`}.
              <b>Não</b> entram na percentagem nem na wantlist geral.`
           : 'a carregar…');
   $('#inicio-cartoes').innerHTML = cartoes;
@@ -5093,7 +5094,7 @@ function renderInicio() {
   // lado, o que dava um catálogo de 1006 quando ele tem 1180.
   $('#inicio-fontes').innerHTML = '<p class="ini-h">De quando são estes números</p><table>'
     + `<tr><td>Coleção e decks</td><td>${quando(ix.generated_at)}</td></tr>`
-    + `<tr><td>Preços (CardTrader)</td><td>${quando(v.day)}</td></tr>`
+    + (semEuros() ? '' : `<tr><td>Preços (CardTrader)</td><td>${quando(v.day)}</td></tr>`)
     + `<tr><td>Impressões com pelo menos uma cópia</td><td>${num(tt.printings || 0)}</td></tr>`
     + '</table>';
 }
@@ -5548,7 +5549,7 @@ function renderFeTabs() {
 /* «faltam 304 · 2 257 €» — o resumo curto de um bloco, edição ou total. */
 function feCurto(t) {
   if (!t.copies && !t.pending_copies) return 'nada falta';
-  return `faltam ${t.copies} · ${eurShort(t.cents)}`;
+  return `faltam ${t.copies}${semEuros() ? '' : ` · ${eurShort(t.cents)}`}`;
 }
 
 /* «faltam N cópias de M · X €[ · K a caminho]» — a frase dos cabeçalhos. */
@@ -5556,8 +5557,8 @@ function feResumo(t) {
   if (!t.copies && !t.pending_copies) return 'nada falta';
   const partes = [];
   if (t.copies) partes.push(`faltam <b>${plural(t.copies, 'cópia', 'cópias')}</b> de ${
-    plural(t.cards, 'impressão', 'impressões')} · <b>${eur(t.cents)}</b>${
-    t.no_price ? ` (${t.no_price} sem preço)` : ''}`);
+    plural(t.cards, 'impressão', 'impressões')}${semEuros() ? '' : ` · <b>${eur(t.cents)}</b>`}${
+    t.no_price && !semEuros() ? ` (${t.no_price} sem preço)` : ''}`);
   if (t.pending_copies) partes.push(`<i class="caminho">${t.pending_copies} a caminho</i>`);
   return partes.join(' · ');
 }
@@ -6087,7 +6088,7 @@ function feTile(x) {
     <div class="codigo">${escapeHTML((x.code || '').split('/')[0])}${
       x.price != null ? ` · ${eur(x.price)}${piso
         ? ' <i class="piso" title="Não há oferta foil no CardTrader: esta linha conta ao preço da NORMAL, por isso o total é um piso.">normal</i>'
-        : ''}` : ' · sem preço'}</div>
+        : ''}` : (semEuros() ? '' : ' · sem preço')}</div>
     ${feEncHTML(x)}
   </div>`;
 }
@@ -6368,7 +6369,8 @@ function renderVenda() {
         ? `<span><i>Preços</i>Trend do Cardmarket do dia, Foil e Não Foil</span>
       <span><i>Coleção</i>não mexe até carregares em «marcar como vendidas»</span>`
         // Na cópia só de leitura não há botões nem quem os carregue (20/10/2026,
-        // achado R5), e desde 04/11/2026 também não há preços.
+        // achado R5), e desde 04/11/2026 também não há preços: a frase diz
+        // isso em vez de repetir a frase do Trend do modo de edição.
         : `<span><i>Preços</i>só no modo de edição</span>
       <span><i>Coleção</i>não mexe enquanto as cartas não forem marcadas como vendidas</span>`}
     </div>
@@ -7633,7 +7635,8 @@ function priceBadgeMin() {
 
 // Versão curta para caber no tile: sem cêntimos a partir dos 100 €.
 function eurShort(cents) {
-  if (semEuros()) return '—';
+  // `null` era «0,00 €», que parece um preço (2026-11-05).
+  if (cents == null || semEuros()) return '—';
   const v = cents / 100;
   return v.toLocaleString('pt-PT', {
     style: 'currency', currency: 'EUR',
