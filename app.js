@@ -5625,6 +5625,7 @@ function renderFaltasEdicao() {
   $('#fe-body').innerHTML = sets.map(s => `
     <h2 class="section-head fe-set">${escapeHTML(s.name)}
       <span data-fe-res="set:${escapeAttr(s.set)}">${feResumo(s)}</span></h2>
+    ${s.foil ? feFoilMetade(s) : ''}
     <p class="fe-metade normais">Normais — <b>as faltas</b></p>
     ${s.blocks.map(g => `
       <h3 class="section-head sub fe-bloco ${g.id}${g.in_lists ? '' : ' fe-ver'}">${escapeHTML(g.label)}
@@ -5634,7 +5635,7 @@ function renderFaltasEdicao() {
         ? `<div class="grid deck-grid fe-grid">${g.items.map(feTile).join('')}</div>`
         : `<p class="empty fe-vazio">${g.scope ? 'Nada falta neste bloco.' : 'Esta edição não tem impressões neste bloco.'}</p>`}
       ${feWantlistHTML(s, g)}`).join('')}
-    ${feFoilMetade(s)}`).join('');
+    ${s.foil ? '' : feFoilMetade(s)}`).join('');
 
   // As caixas vêm preenchidas, como as da Coleção: a wantlist está ali, sem
   // carregar em nada. Uma por (edição, bloco), com id próprio para as
@@ -5675,12 +5676,13 @@ function renderFeCaixa(c) {
   $('#fe-body').innerHTML = `
     <h2 class="section-head fe-set">${escapeHTML(c.label)}
       <span data-fe-res="caixa:${escapeAttr(c.id)}">${feResumo(c)}</span></h2>
+    ${feSetDaCaixa(c) ? feFoilMetade(feSetDaCaixa(c))
+      + '<p class="fe-metade normais">Normais — <b>as faltas</b></p>' : ''}
     ${c.items.length
       ? `<div class="grid deck-grid fe-grid">${c.items.map(feTile).join('')}</div>`
       : `<p class="empty fe-vazio">${c.scope
           ? 'Nada falta nesta caixa.' : 'Esta caixa não tem impressões no âmbito.'}</p>`}
-    ${feWantlistHTML(null, c)}
-    ${feSetDaCaixa(c) ? feFoilMetade(feSetDaCaixa(c)) : ''}`;
+    ${feWantlistHTML(null, c)}`;
 
   const itens = feWantlistItens(c);
   if (itens.length) {
@@ -5738,8 +5740,8 @@ function feCaixaCabecalho(c) {
       ${esc.length ? `<br>Fora desta caixa, por estarem <b>escondidas</b> em todo o
         site (<code>master_set.escondidas</code>): ${esc.join(' · ')}.` : ''}
       ${feFoilDaCaixa(c) ? ` As <i class="foil">foils</i> que faltam desta edição
-        estão <b>por baixo</b>, à parte, com a wantlist delas: não somam às faltas de
-        cima, e um + ali marca o mesmo que na vista da edição.` : ''}
+        vêm <b>primeiro</b>, à parte, com a wantlist delas: não somam às faltas das
+        normais, e um + ali marca o mesmo que na vista da edição.` : ''}
       ${state.editable ? ` O <b>+</b> e o <b>−</b> são os mesmos de sempre e o mesmo
         registo: marcar aqui marca na edição, é a mesma linha.` : ''}</small>
   </div>`;
