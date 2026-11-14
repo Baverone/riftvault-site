@@ -5533,24 +5533,41 @@ function renderFeTabs() {
       const on = s.id === state.prefs.feSet;
       b.className = 'tab' + (on ? ' is-on' : '');
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      b.innerHTML = `${escapeHTML(s.name)}<small>${escapeHTML(feCurto(s.t))}</small>`;
+      b.innerHTML = `${escapeHTML(s.name)}<small>${escapeHTML(feCurto(s.t, s.f))}</small>`;
       b.onclick = () => escolher(s.id);
       nav.appendChild(b);
     }
   };
-  fila($('#fe-tabs'), [{ id: 'all', name: 'Todas', t: p.totals },
-                       ...p.sets.map(s => ({ id: s.set, name: s.name, t: s }))]);
+  fila($('#fe-tabs'), [{ id: 'all', name: 'Todas', t: p.totals, f: p.foil && p.foil.totals },
+                       ...p.sets.map(s => ({ id: s.set, name: s.name, t: s, f: s.foil }))]);
   // A fila das caixas não aparece quando não há nenhuma (lista vazia no
   // config): um rótulo «Caixas» sobre o vazio não diz nada.
   const cxs = p.caixas || [];
   $('#fe-caixas-bar').hidden = !cxs.length;
-  if (cxs.length) fila($('#fe-caixas'), cxs.map(c => ({ id: c.id, name: c.label, t: c })));
+  if (cxs.length) fila($('#fe-caixas'), cxs.map(c => ({ id: c.id, name: c.label, t: c,
+                                                       f: feFoilDaCaixa(c) })));
 }
 
-/* «faltam 304 · 2 257 €» — o resumo curto de um bloco, edição ou total. */
-function feCurto(t) {
-  if (!t.copies && !t.pending_copies) return 'nada falta';
-  return `faltam ${t.copies}${semEuros() ? '' : ` · ${eurShort(t.cents)}`}`;
+/* A metade das foils de uma caixa de EDIÇÃO (a «VEN — tudo»): é a da própria
+   edição, o mesmo objecto, por isso um + numa marca na outra. As caixas de
+   bloco (Alt Art, OverNumbered) não têm foils — o âmbito do foil são as comuns
+   e incomuns base. */
+function feSetDaCaixa(c) {
+  if (!c || !c.set) return null;
+  return (state.faltasEdicao.sets || []).find(x => x.set === c.set) || null;
+}
+function feFoilDaCaixa(c) {
+  const s = feSetDaCaixa(c);
+  return s ? s.foil || null : null;
+}
+
+/* «faltam 304 · 2 257 € · 12 foil» — o resumo curto de um bloco, edição ou
+   total. As foils vêm à parte (2026-11-14: 'nas faltas, também apareçam as
+   foils que me faltam') e não somam às faltas de cima. */
+function feCurto(t, f) {
+  const foil = f && f.copies ? ` · ${f.copies} foil` : '';
+  if (!t.copies && !t.pending_copies) return foil ? `nada falta${foil}` : 'nada falta';
+  return `faltam ${t.copies}${semEuros() ? '' : ` · ${eurShort(t.cents)}`}${foil}`;
 }
 
 /* «faltam N cópias de M · X €[ · K a caminho]» — a frase dos cabeçalhos. */
@@ -5662,13 +5679,25 @@ function renderFeCaixa(c) {
       ? `<div class="grid deck-grid fe-grid">${c.items.map(feTile).join('')}</div>`
       : `<p class="empty fe-vazio">${c.scope
           ? 'Nada falta nesta caixa.' : 'Esta caixa não tem impressões no âmbito.'}</p>`}
-    ${feWantlistHTML(null, c)}`;
+    ${feWantlistHTML(null, c)}
+    ${feSetDaCaixa(c) ? feFoilMetade(feSetDaCaixa(c)) : ''}`;
 
   const itens = feWantlistItens(c);
   if (itens.length) {
     const zid = feWlId(null, c) + '-cm';
     cmLigar(zid, () => feWantlistItens(c), `riftvault-faltas-${c.id}-${hojeISO()}.csv`);
     cmMostrar(zid, itens, false, { foco: false, copiar: false });
+  }
+  // A quinta wantlist, a das foils, liga-se como na vista da edição.
+  const s = c.set ? feSetDaCaixa(c) : null;
+  const g = s && s.foil;
+  if (g) {
+    const its = feWantlistItens(g);
+    if (its.length) {
+      const zid = feWlId(s, g) + '-cm';
+      cmLigar(zid, () => feWantlistItens(g), `riftvault-faltas-${s.set}-${g.id}-${hojeISO()}.csv`);
+      cmMostrar(zid, its, false, { foco: false, copiar: false, foilTodas: true });
+    }
   }
   ligarFeEnc();
 }
@@ -5708,8 +5737,9 @@ function feCaixaCabecalho(c) {
         (<code>listas_de_compra.so_master_set</code>) — é esta a lista dela.`}
       ${esc.length ? `<br>Fora desta caixa, por estarem <b>escondidas</b> em todo o
         site (<code>master_set.escondidas</code>): ${esc.join(' · ')}.` : ''}
-      ${c.foil ? ` E ${c.foil} cópias na metade das <i class="foil">foils</i>, que
-        não são faltas (2026-09-27) e têm a lista delas no separador da edição.` : ''}
+      ${feFoilDaCaixa(c) ? ` As <i class="foil">foils</i> que faltam desta edição
+        estão <b>por baixo</b>, à parte, com a wantlist delas: não somam às faltas de
+        cima, e um + ali marca o mesmo que na vista da edição.` : ''}
       ${state.editable ? ` O <b>+</b> e o <b>−</b> são os mesmos de sempre e o mesmo
         registo: marcar aqui marca na edição, é a mesma linha.` : ''}</small>
   </div>`;
@@ -5916,6 +5946,13 @@ function feAcertarResumos() {
     const r = document.querySelector(`#fe-body [data-fe-res="caixa:${CSS.escape(cx.id)}"]`);
     if (r) r.innerHTML = feResumo(cx);
     feAcertarWantlist(null, cx);
+    const s = feSetDaCaixa(cx);
+    if (s && s.foil) {
+      const c = document.querySelector(
+        `#fe-body [data-fe-res="bloco:${CSS.escape(s.set)}:${CSS.escape(s.foil.id)}"]`);
+      if (c) c.innerHTML = feResumo(s.foil);
+      feAcertarWantlist(s, s.foil);
+    }
     return;
   }
   for (const s of p.sets.filter(x => sel === 'all' || x.set === sel)) {
@@ -6072,6 +6109,9 @@ function feWantlistHTML(s, g) {
    crachá já o diz, e a 375 px a linha do código é elidida — a palavra a mais
    cortava o preço, que é o que ali interessa. A marca do piso fica, porque é
    a excepção. */
+/* Num alvo de playset o tile diz só quantas FALTAM (o crachá «faltam N»), sem o
+   «tens 1/3» (André, 2026-11-14: 'nas que são playset, apareça apenas o número
+   que me falta e não tipo 1/3'). Com alvo 1 o «tens 0/1» fica: aí não há conta. */
 function feTile(x) {
   const cls = (x.missing > 0 ? 'gone' : 'a-caminho') + (x.foil ? ' fe-foil' : '')
     + (x.pending ? ' fe-enc' : '');
@@ -6080,7 +6120,7 @@ function feTile(x) {
   return `<div class="dtile ${cls}" data-fe-pid="${escapeAttr(x.printing_id)}"
        data-fe-foil="${x.foil ? '1' : '0'}">
     ${artHTML(x, `<span class="need">${crachá}</span>
-      <span class="ja-tens">tens ${x.have}/${x.target}${x.foil ? ' foil' : ''}</span>
+      ${x.target > 1 ? '' : `<span class="ja-tens">tens ${x.have}/${x.target}${x.foil ? ' foil' : ''}</span>`}
       ${x.price != null && x.missing > 0 ? `<span class="price">${eurShort(x.total)}</span>` : ''}
       ${x.pending ? `<span class="enc-n" title="${x.pending} já encomendada${
         x.pending === 1 ? '' : 's'}">+${x.pending}</span>` : ''}`)}
