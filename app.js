@@ -208,6 +208,9 @@ const ICO = {
   venda: '<path d="M12 1.8v20.4"/><path d="M17 5.6H9.5a3.4 3.4 0 0 0 0 6.8h5a3.4 3.4 0 0 1 0 6.8H6"/>',
   selado: '<path d="M2.5 8.2 12 3.1l9.5 5.1v7.6L12 20.9l-9.5-5.1z"/>'
         + '<path d="M2.5 8.2 12 13.3l9.5-5.1"/><path d="M12 13.3v7.6"/>',
+  // «Torneios» (2026-11-15): o calendário do mesmo conjunto Feather.
+  torneios: '<rect x="3" y="4.5" width="18" height="17" rx="2.2"/><path d="M16 2.5v4"/>'
+          + '<path d="M8 2.5v4"/><path d="M3 10h18"/>',
   ajuda: '<circle cx="12" cy="12" r="9.5"/>'
        + '<path d="M9.3 9.2a2.8 2.8 0 0 1 5.4.9c0 1.9-2.7 2.8-2.7 2.8"/><path d="M12 17h.01"/>',
 };
@@ -250,12 +253,38 @@ const NAV = [
     { sec: 'encomendas', ico: 'encomendas', rot: 'Encomendas', nota: 'o que vem a caminho' },
     { sec: 'venda', ico: 'venda', rot: 'Venda', nota: 'a conta de quem compra' },
   ] },
+  { grupo: 'Jogar', itens: [
+    { sec: 'torneios', ico: 'torneios', rot: 'Torneios', nota: 'perto de ti e na Europa' },
+  ] },
 ];
 
 /* O título e o subtítulo de cada página. O TÍTULO é o mesmo rótulo da barra
    lateral, de propósito: carregar em «A mais» e chegar a uma página com outro
    nome é a página a discordar do menu que lá levou. */
 const PAGINA = {
+  'torneios': {
+    sub: 'Os torneios perto de Albufeira e os grandes da Europa, num sítio só — '
+       + 'e um calendário para subscrever no telemóvel.',
+    // Função, como a dos Decks: a última frase depende do payload (se o
+    // calendário leva os «outros»), que chega depois de a tabela ser lida.
+    ajuda: () => '<p><b>Perto de ti</b> é a pesquisa de <b>80 km de Albufeira</b> no Play '
+         + 'Riftbound, lida no Chrome do servidor de hora a hora. Primeiro os que contam — '
+         + 'as <b>quintas na Mulligan Games Portimão</b> e <b>todos os Summoner Skirmish</b> — '
+         + 'e por baixo os <b>outros</b> do mesmo raio (Nexus Nights, Pre-Rift, …), só para '
+         + 'veres.</p>'
+         + '<p>O <b>«✔ inscrito»</b> e o <b>preço</b> só aparecem no modo de edição (o 8770): '
+         + 'onde estás inscrito diz onde vais estar, e o site público não tem euros. O '
+         + 'site publicado e o calendário não levam nenhum dos dois.</p>'
+         + '<p><b>Grandes na Europa</b> são os Regionals e Continentals anunciados pela Riot, '
+         + 'lidos uma vez por semana nas páginas oficiais. Os que ainda <b>não têm data</b> '
+         + 'ficam no fim e não entram no calendário — uma data não se inventa.</p>'
+         + '<p>Cada linha leva o <b>link da fonte</b>, e o rodapé diz quando cada fonte foi '
+         + 'lida. Uma fonte velha ou em falta fica <b>dita</b> no topo da página.</p>'
+         + '<p>O <b>calendário</b> leva os que contam e os grandes'
+         + (state.torneios && state.torneios.regras && state.torneios.regras.ics_inclui_outros
+           ? ' e os outros' : ' (os outros ficam só aqui, para não encherem a agenda)')
+         + '. O telemóvel volta a lê-lo sozinho.</p>',
+  },
   'inicio': {
     sub: 'O que a coleção diz hoje — e por onde continuar.',
   },
@@ -1018,6 +1047,9 @@ async function boot() {
   // ele mandou tirar. Se o índice falhar, o `boot().catch` do fim do ficheiro
   // desenha-a na mesma — sem navegação não se chega a lado nenhum.
   state.escondidas = new Set((state.index.abas || {}).escondidas || []);
+  // Os «Torneios» são do André (a pesquisa de 80 km de Albufeira): numa
+  // coleção de outra pessoa a secção não existe, e o build nem gera o payload.
+  if (!donoEAndre()) state.escondidas.add('torneios');
   renderNav();
 
   // QUEM SOU EU (2026-09-29). Com a porta das contas fechada e de casa isto
@@ -4742,7 +4774,7 @@ function wireEncomendas() {
    seletor de edição, e no telemóvel o `<select>` dos decks) já acima do topo
    do ecrã. Um `scrollTo(0, 0)` não chegava: o salto do browser é DEPOIS do
    `boot()`. Com os dois nomes separados não há âncora nenhuma a apanhar. */
-const SECCOES = ['inicio', 'colecao', 'decks', 'faltas-edicao', 'a-mais', 'encomendas', 'venda', 'selado'];
+const SECCOES = ['inicio', 'colecao', 'decks', 'faltas-edicao', 'a-mais', 'encomendas', 'venda', 'selado', 'torneios'];
 
 /* Desenha a secção e põe a rota no URL. `sub` é a sub-vista — a edição, o deck
    ou a lista de compra. Vazia, usa-se a última que ele escolheu. */
@@ -4856,6 +4888,13 @@ function abrirSubVista(name, sub) {
 
   if (name === 'selado') {
     if (!state.selado) loadSelado().catch(err => erro('#sl-body', err));
+    return;
+  }
+
+  if (name === 'torneios') {
+    // Relê-se a cada entrada: no 8770 a lista muda de hora a hora (a tarefa
+    // das inscrições reescreve-a) e é um ficheiro pequeno.
+    loadTorneios().catch(err => erro('#tn-body', err));
   }
 }
 
@@ -6774,6 +6813,223 @@ const SL_FILTROS = [
   { id: 'falta', rot: 'Não tenho' },
   { id: 'porsair', rot: 'Por sair' },
 ];
+
+/* ==========================================================================
+   TORNEIOS (2026-11-15)
+
+   André: *"uma aba que é «torneios» … fazes um género de um calendário"*.
+   Os dados vêm do `api/torneios.json` (ver `torneios.py`): o servidor já os
+   normaliza, já tira os que passaram e já diz se a fonte está velha. O que se
+   faz aqui outra vez, e é de propósito, são essas duas últimas contas com o
+   relógio DO TELEMÓVEL: o site publicado só se regenera quando alguma coisa
+   muda, e um ficheiro de há três dias continuava a mostrar o torneio de
+   anteontem e a dizer que a lista estava em dia.                         */
+
+const TN_MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho',
+  'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const TN_MES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set',
+  'out', 'nov', 'dez'];
+
+/* A data de hoje EM LISBOA, «AAAA-MM-DD» — o `en-CA` é o formato do Intl que
+   já sai assim. */
+function tnHoje() {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' }).format(new Date());
+  } catch (_) {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+function tnDias(de, ate) {
+  return Math.round((Date.parse(ate + 'T00:00:00Z') - Date.parse(de + 'T00:00:00Z')) / 864e5);
+}
+
+function tnDataCurta(iso) {
+  const [a, m, d] = iso.split('-').map(Number);
+  return { a, m, d, txt: `${d} ${TN_MES_CURTO[m - 1]}` };
+}
+
+/* «5–7 fev 2027», «29 jun – 1 jul 2027», «13 ago 2027». */
+function tnIntervalo(ini, fim) {
+  const i = tnDataCurta(ini);
+  const f = tnDataCurta(fim || ini);
+  if (ini === (fim || ini)) return `${i.txt} ${i.a}`;
+  if (i.a === f.a && i.m === f.m) return `${i.d}–${f.d} ${TN_MES_CURTO[i.m - 1]} ${i.a}`;
+  if (i.a === f.a) return `${i.txt} – ${f.txt} ${i.a}`;
+  return `${i.txt} ${i.a} – ${f.txt} ${f.a}`;
+}
+
+function tnHost(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch (_) { return url; }
+}
+
+/* Quando foi lida: «15/11/2026» ou «15/11/2026 09:40» — no 8770 vem a hora,
+   no publicado só a data (ver `torneios._perto`). */
+function tnLido(txt) {
+  if (!txt) return 'sem data de leitura';
+  const s = String(txt);
+  const [a, m, d] = s.slice(0, 10).split('-');
+  if (s.length <= 10) return `${d}/${m}/${a}`;
+  const t = new Date(s);
+  if (Number.isNaN(t.getTime())) return s;
+  const hora = new Intl.DateTimeFormat('pt-PT', { timeZone: 'Europe/Lisbon',
+    hour: '2-digit', minute: '2-digit' }).format(t);
+  return `${d}/${m}/${a} ${hora}`;
+}
+
+async function loadTorneios() {
+  state.torneios = await getJSON('api/torneios.json');
+  renderTorneios();
+  // A ajuda diz se o calendário leva os «outros», e isso vem no payload.
+  if (seccaoNoEcra === 'torneios') renderCabecalho('torneios', '');
+}
+
+function tnLinhaLocal(t) {
+  const lug = t.lugares != null
+    ? `<span class="tn-lug" title="lugares ocupados / lugares">${t.ocupados ?? '?'}/${t.lugares}</span>` : '';
+  // O preço só existe no 8770: no publicado o `privacidade.limpar` deixou-o a
+  // `null` (o site público não tem euros) e a linha fica sem ele.
+  const preco = t.preco_eur != null && !semEuros()
+    ? `<span class="tn-preco">${eur(Math.round(t.preco_eur * 100))}</span>` : '';
+  const insc = t.inscrito ? '<span class="tn-insc">✔ inscrito</span>' : '';
+  const km = t.distancia_km != null ? ` · ${escapeHTML(String(t.distancia_km))} km` : '';
+  const d = tnDataCurta(t.data);
+  return `<div class="tn-linha${t.inscrito ? ' insc' : ''}">
+    <div class="tn-dia"><i>${escapeHTML(t.dia_semana.slice(0, 3))}</i><b>${d.d}</b>
+      <small>${TN_MES_CURTO[d.m - 1]}</small></div>
+    <div class="tn-meio">
+      <div class="tn-nome">${escapeHTML(t.nome)}</div>
+      <div class="tn-meta"><span class="tn-tipo">${escapeHTML(t.tipo || '—')}</span>
+        ${escapeHTML(t.loja)}${t.localidade ? ' · ' + escapeHTML(t.localidade) : ''}${km}</div>
+    </div>
+    <div class="tn-dir">
+      <span class="tn-hora">${escapeHTML(t.hora)}</span>${preco}${lug}${insc}
+      ${t.url ? `<a class="tn-link" href="${escapeAttr(t.url)}" target="_blank" rel="noopener">evento ↗</a>` : ''}
+    </div>
+  </div>`;
+}
+
+/* Por mês, pela ordem em que vêm (o servidor já as ordenou). */
+function tnPorMes(linhas) {
+  let out = '', mes = '';
+  for (const t of linhas) {
+    const m = t.data.slice(0, 7);
+    if (m !== mes) {
+      if (mes) out += '</div>';
+      mes = m;
+      const [a, mm] = m.split('-').map(Number);
+      out += `<h4 class="tn-mes">${TN_MESES[mm - 1]} ${a}</h4><div class="tn-lista">`;
+    }
+    out += tnLinhaLocal(t);
+  }
+  return out ? out + '</div>' : '';
+}
+
+function tnLinhaGrande(t) {
+  const quando = t.sem_data ? 'sem data' : tnIntervalo(t.inicio, t.fim);
+  const onde = [t.cidade, t.pais].filter(Boolean).map(escapeHTML).join(', ');
+  return `<div class="tn-linha grande${t.sem_data ? ' semdata' : ''}">
+    <div class="tn-quando">${escapeHTML(quando)}</div>
+    <div class="tn-meio">
+      <div class="tn-nome">${escapeHTML(t.nome)}</div>
+      <div class="tn-meta">${onde || '—'}${t.organizador ? ' · ' + escapeHTML(t.organizador) : ''}
+        ${(t.formatos || []).length ? `<span class="tn-tipo">${t.formatos.map(escapeHTML).join(' · ')}</span>` : ''}</div>
+      ${t.nota ? `<div class="tn-nota">${escapeHTML(t.nota)}</div>` : ''}
+    </div>
+    <div class="tn-dir">${t.fonte_url ? `<a class="tn-link" href="${escapeAttr(t.fonte_url)}"
+      target="_blank" rel="noopener">fonte ↗</a>` : '<span class="dim">sem fonte</span>'}</div>
+  </div>`;
+}
+
+function renderTorneios() {
+  const p = state.torneios;
+  if (!p) return;
+  const hoje = tnHoje();
+  const perto = p.perto || {};
+  const gr = p.grandes || {};
+  // As contas do relógio outra vez, com o relógio de quem está a ler (ver o
+  // topo deste bloco).
+  const futuro = t => t.data >= hoje;
+  const alvos = (perto.alvos || []).filter(futuro);
+  const outros = (perto.outros || []).filter(futuro);
+  const grandes = (gr.torneios || []).filter(t => (t.fim || t.inicio) >= hoje);
+  const semData = gr.sem_data || [];
+
+  const avisos = [];
+  if (perto.aviso) avisos.push(perto.aviso);
+  else if (perto.lido_em && tnDias(String(perto.lido_em).slice(0, 10), hoje) > 1) {
+    avisos.push(`A lista de torneios perto de ti foi lida a ${tnLido(perto.lido_em)} e devia `
+      + 'ler-se de hora a hora — pode haver torneios novos, cheios ou cancelados que aqui '
+      + 'não se veem.');
+  }
+  if (gr.aviso) avisos.push(gr.aviso);
+  else if (gr.atualizado_em && tnDias(String(gr.atualizado_em).slice(0, 10), hoje) > 8) {
+    avisos.push(`A lista dos grandes torneios foi lida a ${tnLido(gr.atualizado_em)} e devia `
+      + 'ler-se todas as semanas — pode haver anúncios novos.');
+  }
+  const r = p.regras || {};
+  const quais = `as ${escapeHTML(r.alvo_dia || 'quinta')}s na ${
+    (r.alvo_lojas || []).map(escapeHTML).join(' / ')} e ${
+    (r.alvo_tipos || []).map(x => 'todos os ' + escapeHTML(x)).join(', ')}`;
+
+  let out = avisos.map(a => `<p class="tn-aviso" role="status">${escapeHTML(a)}</p>`).join('');
+
+  out += `<h2 class="section-head">Perto de ti <small>raio de 80 km de Albufeira</small>
+    <span>${alvos.length + outros.length}</span></h2>`;
+  out += `<h3 class="section-head sub">Os que contam <small>${quais}</small>
+    <span>${alvos.length}</span></h3>`;
+  out += tnPorMes(alvos)
+    || `<p class="empty">${perto.fonte ? 'Nenhum torneio destes nas próximas semanas.' : 'Sem lista — ver o aviso acima.'}</p>`;
+  if (outros.length) {
+    out += `<details class="tn-outros"><summary><b>Outros</b> (${outros.length}) — Nexus Nights,
+      Pre-Rift e o resto do mesmo raio, só para veres</summary>${tnPorMes(outros)}</details>`;
+  }
+  if (perto.ignorados) {
+    out += `<p class="nota tn-nota-pe">${plural(perto.ignorados, 'linha da fonte ficou',
+      'linhas da fonte ficaram')} de fora por não ter data e hora válidas.</p>`;
+  }
+
+  out += `<h2 class="section-head">Grandes na Europa <small>Regionals e Continentals da Riot</small>
+    <span>${grandes.length + semData.length}</span></h2>`;
+  out += (grandes.length || semData.length)
+    ? `<div class="tn-lista">${grandes.map(tnLinhaGrande).join('')}${semData.map(tnLinhaGrande).join('')}</div>`
+    : `<p class="empty">${gr.atualizado_em ? 'Nenhum grande torneio anunciado daqui para a frente.' : 'Sem lista — ver o aviso acima.'}</p>`;
+
+  // O rodapé: cada fonte e quando foi lida, e as que falharam ditas.
+  const fontes = [];
+  if (perto.fonte) {
+    fontes.push(`<li><a href="${escapeAttr(perto.fonte)}" target="_blank" rel="noopener">Play
+      Riftbound — pesquisa de Albufeira</a> · lida a ${escapeHTML(tnLido(perto.lido_em))}</li>`);
+  }
+  for (const f of gr.fontes || []) {
+    fontes.push(`<li><a href="${escapeAttr(f.url)}" target="_blank" rel="noopener">${
+      escapeHTML(tnHost(f.url))}</a> · ${f.erro
+      ? `<b class="tn-erro">não se leu${f.lido_em ? ` desde ${escapeHTML(tnLido(f.lido_em))}` : ''}: ${escapeHTML(f.erro)}</b>`
+      : `lida a ${escapeHTML(tnLido(f.lido_em))}`}</li>`);
+  }
+  // O endereço é ABSOLUTO e vem do config: quem o copia está muitas vezes no
+  // 8770, onde um endereço relativo dava o IP da LAN.
+  const url = p.ics_url || 'https://rift.baverone.com/torneios.ics';
+  out += `<div class="tn-pe">
+    <div class="tn-sub deck-card">
+      <div class="deck-title"><b>Calendário no telemóvel</b></div>
+      <p class="tn-botoes"><a class="btn primary tn-subscrever" href="${escapeAttr(url)}">Subscrever no telemóvel</a>
+        <a class="tn-webcal" href="${escapeAttr(url.replace(/^https?:/, 'webcal:'))}">abrir no iPhone</a></p>
+      <p class="tn-url"><code>${escapeHTML(url)}</code></p>
+      <ul class="tn-como">
+        <li><b>Google Calendar</b> (no computador, em calendar.google.com): «Outros calendários»
+          → <b>+</b> → «Adicionar por URL» (às vezes «A partir do URL»), colar o endereço.
+          Aparece sozinho no telemóvel Android.</li>
+        <li><b>iPhone</b>: Definições → Calendário → Contas → Adicionar conta → Outra →
+          «Adicionar calendário subscrito», colar o endereço (ou tocar em «abrir no iPhone»).</li>
+      </ul>
+      <small class="nota">É público e não diz onde estás inscrito. O telemóvel volta a lê-lo
+        sozinho, de umas em umas horas.</small>
+    </div>
+    <div class="tn-fontes"><b>Fontes</b><ul>${fontes.join('') || '<li>nenhuma lida</li>'}</ul></div>
+  </div>`;
+  $('#tn-body').innerHTML = out;
+}
 
 async function loadSelado() {
   $('#sl-body').innerHTML = '<p class="empty">a carregar…</p>';

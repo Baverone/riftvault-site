@@ -2088,3 +2088,72 @@ button.vd-chip:hover, button.vd-chip:focus-visible { border-color: var(--accent)
   .shell { display: block; }
   body { background: #fff; color: #000; }
 }
+
+/* ============================================================== «TORNEIOS»
+
+   André, 2026-11-15: os torneios perto de Albufeira e os grandes da Europa.
+   Uma linha por torneio, com o dia à esquerda como numa agenda; a 375 px a
+   coluna da direita (hora, lugares, link) desce para baixo do nome — nada
+   corre para o lado, e um nome comprido parte em vez de empurrar.          */
+
+#tn-body .section-head { text-transform: none; flex-wrap: wrap; margin-top: 26px; }
+#tn-body .section-head:first-child { margin-top: 0; }
+#tn-body .section-head small { font-size: 12px; font-weight: 400; color: var(--dim); }
+#tn-body .section-head.sub { font-size: 13px; margin-top: 14px; border-bottom: 0; }
+.tn-aviso { background: rgba(240, 180, 41, .1); border: 1px solid rgba(240, 180, 41, .45);
+  color: var(--warn, #f0b429); border-radius: var(--r); padding: 10px 12px; margin: 0 0 12px;
+  font-size: 13px; }
+.tn-mes { margin: 16px 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted); }
+.tn-lista { display: grid; gap: 8px; }
+.tn-linha { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 12px;
+  align-items: center; background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r2); padding: 10px 12px; }
+.tn-linha.insc { border-color: var(--accent-line); background: var(--accent-soft); }
+.tn-linha.grande { grid-template-columns: 128px minmax(0, 1fr) auto; }
+.tn-linha.semdata { border-style: dashed; opacity: .8; }
+.tn-dia { display: grid; justify-items: center; line-height: 1.1; }
+.tn-dia i { font-style: normal; font-size: 11px; text-transform: uppercase; color: var(--muted); }
+.tn-dia b { font: 700 22px/1.1 var(--font-hd); }
+.tn-dia small { font-size: 11px; color: var(--dim); }
+.tn-quando { font: 600 14px/1.25 var(--font-hd); color: var(--ink2); }
+.tn-nome { font-size: 15px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.tn-meta { font-size: 12px; color: var(--muted); margin-top: 3px; overflow-wrap: anywhere; }
+.tn-nota { font-size: 12px; color: var(--dim); margin-top: 3px; }
+.tn-tipo { display: inline-block; border: 1px solid var(--line2); border-radius: 6px;
+  padding: 0 6px; margin-right: 6px; font-size: 11px; color: var(--ink2); }
+.tn-dir { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center;
+  gap: 4px 12px; text-align: right; }
+.tn-hora { font: 700 16px/1 var(--font-hd); }
+.tn-preco { font-size: 13px; color: var(--ink2); }
+.tn-lug { font-size: 12px; color: var(--muted); }
+.tn-insc { font-size: 12px; font-weight: 700; color: var(--ok); }
+.tn-link { color: var(--accent); font-size: 13px; min-height: 28px; display: inline-flex;
+  align-items: center; }
+.tn-outros { margin-top: 18px; }
+.tn-outros > summary { cursor: pointer; color: var(--ink2); font-size: 14px; padding: 6px 0; }
+.tn-nota-pe { text-align: left; }
+.tn-pe { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px;
+  margin-top: 30px; }
+.tn-sub p { margin: 6px 0; }
+.tn-botoes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.tn-webcal { color: var(--accent); font-size: 13px; }
+.tn-url code { overflow-wrap: anywhere; font-size: 12px; }
+.tn-como { margin: 8px 0; padding-left: 18px; font-size: 13px; color: var(--ink2); }
+.tn-como li { margin: 4px 0; }
+.tn-fontes { font-size: 13px; color: var(--muted); }
+.tn-fontes ul { margin: 6px 0; padding-left: 18px; }
+.tn-fontes li { margin: 3px 0; overflow-wrap: anywhere; }
+.tn-fontes a { color: var(--ink2); }
+.tn-erro { color: var(--bad); font-weight: 600; }
+
+@media (max-width: 699px) {
+  .tn-pe { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 559px) {
+  .tn-linha, .tn-linha.grande { grid-template-columns: 48px minmax(0, 1fr); align-items: start; }
+  .tn-linha.grande .tn-quando { grid-column: 1 / -1; }
+  .tn-linha.grande .tn-meio { grid-column: 1 / -1; }
+  .tn-dir { grid-column: 1 / -1; justify-content: space-between; text-align: left;
+    border-top: 1px solid var(--line); padding-top: 8px; }
+}

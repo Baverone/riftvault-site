@@ -1,0 +1,189 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Baverone//riftvault torneios//PT
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Torneios Riftbound
+X-WR-TIMEZONE:Europe/Lisbon
+REFRESH-INTERVAL;VALUE=DURATION:PT6H
+X-PUBLISHED-TTL:PT6H
+BEGIN:VTIMEZONE
+TZID:Europe/Lisbon
+BEGIN:DAYLIGHT
+TZOFFSETFROM:+0000
+TZOFFSETTO:+0100
+TZNAME:WEST
+DTSTART:19700329T010000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0000
+TZNAME:WET
+DTSTART:19701025T020000
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:117377819778082064@rift.baverone.com
+DTSTAMP:20261115T000000Z
+DTSTART;TZID=Europe/Lisbon:20261119T193000
+SUMMARY:Nexus Night Quinta - Mulligan Games Portimão
+LOCATION:Mulligan Games Portimão\, Portimão
+DESCRIPTION:Nexus Nights\n24 km de Albufeira\nFonte: https://playriftbound.
+ com/en-US/events/117377819778082064
+URL:https://playriftbound.com/en-US/events/117377819778082064
+END:VEVENT
+BEGIN:VEVENT
+UID:117100675798297689@rift.baverone.com
+DTSTAMP:20261115T000000Z
+DTSTART;TZID=Europe/Lisbon:20261121T140000
+SUMMARY:Radiance Skirmish I
+LOCATION:Mulligan Games\, Quarteira
+DESCRIPTION:Summoner Skirmish\n16 km de Albufeira\nFonte: https://playriftb
+ ound.com/en-US/events/117100675798297689
+URL:https://playriftbound.com/en-US/events/117100675798297689
+END:VEVENT
+BEGIN:VEVENT
+UID:117128995137531951@rift.baverone.com
+DTSTAMP:20261115T000000Z
+DTSTART;TZID=Europe/Lisbon:20261122T103000
+SUMMARY:Radiance Summoner Skirmish Playhub
+LOCATION:Bussola Ribalta - PlayHub Faro\, Faro
+DESCRIPTION:Summoner Skirmish\n32 km de Albufeira\nFonte: https://playriftb
+ ound.com/en-US/events/117128995137531951
+URL:https://playriftbound.com/en-US/events/117128995137531951
+END:VEVENT
+BEGIN:VEVENT
+UID:117100718456859770@rift.baverone.com
+DTSTAMP:20261115T000000Z
+DTSTART;TZID=Europe/Lisbon:20261206T140000
+SUMMARY:Radiance Skirmish I - Mulligan Games Portimão
+LOCATION:Mulligan Games Portimão\, Portimão
+DESCRIPTION:Summoner Skirmish\n24 km de Albufeira\nFonte: https://playriftb
+ ound.com/en-US/events/117100718456859770
+URL:https://playriftbound.com/en-US/events/117100718456859770
+END:VEVENT
+BEGIN:VEVENT
+UID:117543488061106929@rift.baverone.com
+DTSTAMP:20261115T000000Z
+DTSTART;TZID=Europe/Lisbon:20261210T193000
+SUMMARY:Nexus Night Quinta - Mulligan Games Portimão
+LOCATION:Mulligan Games Portimão\, Portimão
+DESCRIPTION:Nexus Nights\n24 km de Albufeira\nFonte: https://playriftbound.
+ com/en-US/events/117543488061106929
+URL:https://playriftbound.com/en-US/events/117543488061106929
+END:VEVENT
+BEGIN:VEVENT
+UID:117543507130458599@rift.baverone.com
+DTSTAMP:20261115T000000Z
+DTSTART;TZID=Europe/Lisbon:20261217T193000
+SUMMARY:Nexus Night Quinta - Mulligan Games Portimão
+LOCATION:Mulligan Games Portimão\, Portimão
+DESCRIPTION:Nexus Nights\n24 km de Albufeira\nFonte: https://playriftbound.
+ com/en-US/events/117543507130458599
+URL:https://playriftbound.com/en-US/events/117543507130458599
+END:VEVENT
+BEGIN:VEVENT
+UID:117100679542631518@rift.baverone.com
+DTSTAMP:20261115T000000Z
+DTSTART;TZID=Europe/Lisbon:20261219T140000
+SUMMARY:Radiance Skirmish II
+LOCATION:Mulligan Games\, Quarteira
+DESCRIPTION:Summoner Skirmish\n16 km de Albufeira\nFonte: https://playriftb
+ ound.com/en-US/events/117100679542631518
+URL:https://playriftbound.com/en-US/events/117100679542631518
+END:VEVENT
+BEGIN:VEVENT
+UID:117543602106149284@rift.baverone.com
+DTSTAMP:20261115T000000Z
+DTSTART;TZID=Europe/Lisbon:20270107T193000
+SUMMARY:Nexus Night Quinta - Mulligan Games Portimão
+LOCATION:Mulligan Games Portimão\, Portimão
+DESCRIPTION:Nexus Nights\n24 km de Albufeira\nFonte: https://playriftbound.
+ com/en-US/events/117543602106149284
+URL:https://playriftbound.com/en-US/events/117543602106149284
+END:VEVENT
+BEGIN:VEVENT
+UID:117100722895735628@rift.baverone.com
+DTSTAMP:20261115T000000Z
+DTSTART;TZID=Europe/Lisbon:20270110T140000
+SUMMARY:Radiance Skirmish II -Mulligan Games Portimão
+LOCATION:Mulligan Games Portimão\, Portimão
+DESCRIPTION:Summoner Skirmish\n24 km de Albufeira\nFonte: https://playriftb
+ ound.com/en-US/events/117100722895735628
+URL:https://playriftbound.com/en-US/events/117100722895735628
+END:VEVENT
+BEGIN:VEVENT
+UID:117129004925210859@rift.baverone.com
+DTSTAMP:20261115T000000Z
+DTSTART;TZID=Europe/Lisbon:20270116T103000
+SUMMARY:Radiance Summoner Skirmish Playhub 2
+LOCATION:Bussola Ribalta - PlayHub Faro\, Faro
+DESCRIPTION:Summoner Skirmish\n32 km de Albufeira\nFonte: https://playriftb
+ ound.com/en-US/events/117129004925210859
+URL:https://playriftbound.com/en-US/events/117129004925210859
+END:VEVENT
+BEGIN:VEVENT
+UID:117526414644617013@rift.baverone.com
+DTSTAMP:20261115T000000Z
+DTSTART;TZID=Europe/Lisbon:20270128T190000
+SUMMARY:Pre-rift Legacy - Mulligan Games Portimão
+LOCATION:Mulligan Games Portimão\, Portimão
+DESCRIPTION:Pre-Rift\n24 km de Albufeira\nFonte: https://playriftbound.com/
+ en-US/events/117526414644617013
+URL:https://playriftbound.com/en-US/events/117526414644617013
+END:VEVENT
+BEGIN:VEVENT
+UID:rbr-madrid-2027@rift.baverone.com
+DTSTAMP:20261115T000000Z
+DTSTART;VALUE=DATE:20270205
+DTEND;VALUE=DATE:20270208
+SUMMARY:Regional Madrid
+LOCATION:Madrid\, Espanha
+DESCRIPTION:Organizador: Riot Games\nFormato: regional\nIFEMA Madrid\nFonte
+ : https://playriftbound.com/en-us/news/organizedplay/riftbound-2027-premie
+ r-play/
+URL:https://playriftbound.com/en-us/news/organizedplay/riftbound-2027-premi
+ er-play/
+END:VEVENT
+BEGIN:VEVENT
+UID:rbr-dusseldorf-2027@rift.baverone.com
+DTSTAMP:20261115T000000Z
+DTSTART;VALUE=DATE:20270521
+DTEND;VALUE=DATE:20270524
+SUMMARY:Regional Düsseldorf
+LOCATION:Düsseldorf\, Alemanha
+DESCRIPTION:Organizador: Riot Games\nFormato: regional\nDusseldorf Congress
+ \nFonte: https://playriftbound.com/en-us/news/organizedplay/riftbound-2027
+ -premier-play/
+URL:https://playriftbound.com/en-us/news/organizedplay/riftbound-2027-premi
+ er-play/
+END:VEVENT
+BEGIN:VEVENT
+UID:rbr-lyon-2027@rift.baverone.com
+DTSTAMP:20261115T000000Z
+DTSTART;VALUE=DATE:20270625
+DTEND;VALUE=DATE:20270628
+SUMMARY:Regional Lyon
+LOCATION:Lyon\, França
+DESCRIPTION:Organizador: Riot Games\nFormato: regional\nEurexpo Lyon\nFonte
+ : https://playriftbound.com/en-us/news/organizedplay/riftbound-2027-premie
+ r-play/
+URL:https://playriftbound.com/en-us/news/organizedplay/riftbound-2027-premi
+ er-play/
+END:VEVENT
+BEGIN:VEVENT
+UID:rbc-london-2027@rift.baverone.com
+DTSTAMP:20261115T000000Z
+DTSTART;VALUE=DATE:20270813
+DTEND;VALUE=DATE:20270816
+SUMMARY:Continental Londres
+LOCATION:Londres\, Reino Unido
+DESCRIPTION:Organizador: Riot Games\nFormato: continental\nExCeL London\nFo
+ nte: https://playriftbound.com/en-us/news/organizedplay/riftbound-2027-pre
+ mier-play/
+URL:https://playriftbound.com/en-us/news/organizedplay/riftbound-2027-premi
+ er-play/
+END:VEVENT
+END:VCALENDAR
