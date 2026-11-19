@@ -2902,8 +2902,8 @@ function wlExtrasHTML(setId) {
     const cents = w.cents != null ? w.cents : itens.reduce((n, x) => n + (x.total || 0), 0);
     const nota = g.id === 'foil'
       ? `As <b>foils</b> que faltam desta edição — as comuns e incomuns, ao
-         playset do tipo em foil (${escapeHTML(g.target_label || '')}). É a
-         mesma lista da metade das foils no separador <a href="#faltas-edicao">Faltas</a>.`
+         playset do tipo em foil. É a mesma lista da metade das foils no
+         separador <a href="#faltas-edicao">Faltas</a>.`
       : `As <b>OverNumbered</b> que faltam desta edição, 1 de cada. É a mesma
          lista do bloco OverNumbered no separador <a href="#faltas-edicao">Faltas</a>.`;
     return `<section class="wl-bloco" id="${dom}">
