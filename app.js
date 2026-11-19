@@ -2767,7 +2767,10 @@ function garanteCompras(forcar = false) {
 function wlAtualizar(zona) {
   state.wlStale = false;
   zona.innerHTML = '<p class="empty">a atualizar…</p>';
-  garanteWantlist(true)
+  // As wantlists da OverNumbered e das foils (2026-11-19) vêm das Faltas:
+  // ficariam velhas se só a do master set fosse pedida outra vez.
+  state.faltasEdicao = null;
+  Promise.all([garanteWantlist(true), garanteFaltasEdicao()])
     .then(() => { renderWantlists(); renderFaltaLinha(); })
     .catch(err => { zona.innerHTML = `<p class="empty">${escapeHTML(err.message)}</p>`; });
 }
@@ -2814,6 +2817,8 @@ function renderWantlists() {
        <a href="#faltas-edicao">Faltas</a>; as <b>Promos</b> não têm, porque não
        pedem nada (guardas as que tiveres).${foraTexto(m.scope)}`, nivel) : ''}
 
+    ${edicao ? wlExtrasHTML(edicao) : ''}
+
     ${wlBloco('wl-tudo', 'Wantlist — tudo', todas,
       `As cinco edições seguidas, na ordem dos separadores — tudo o que falta
        ao master set, para comprar de uma vez.${doNivel}`, nivel)}`;
@@ -2837,6 +2842,88 @@ function renderWantlists() {
   }
   wlLigar('wl-tudo', () => wlItens(null, state.prefs.wlNivel || null),
           `riftvault-wantlist-tudo${sufixo}-${hojeISO()}.csv`);
+  if (edicao) wlExtrasLigar(edicao);
+}
+
+/* AS WANTLISTS DA OVERNUMBERED E DAS FOILS no fim da edição (André,
+   2026-11-19: *"por edição, por baixo das cartas que faltam, atualmente só
+   aparece faltas de masterset, nao aparece faltas de overnumbered nem foils
+   (em wantlist) e quero que apareça também"*).
+
+   NÃO SÃO LISTAS NOVAS: são as MESMAS do separador Faltas (`api/faltas_edicao.
+   json`, o bloco `overnumbered` e a metade `foil` da edição), com os mesmos
+   itens (`feWantlistItens`) e o mesmo texto para o Cardmarket. Um número só,
+   duas vistas — como o «já encomendei». Não entram na «Wantlist — tudo»
+   (`listas_de_compra.so_master_set` continua a valer) e o degrau «até N de
+   cada» não lhes mexe: é uma pergunta do master set. */
+const WL_EXTRAS = [
+  { id: 'overnumbered', dom: 'wl-ed-on' },
+  { id: 'foil', dom: 'wl-ed-foil' },
+];
+
+function garanteFaltasEdicao() {
+  if (state.faltasEdicao) return Promise.resolve(state.faltasEdicao);
+  if (!state.faltasEdicaoP) {
+    state.faltasEdicaoP = getJSON('api/faltas_edicao.json')
+      .then(p => { state.faltasEdicao = p; feLigarCaixas(); return p; })
+      .finally(() => { state.faltasEdicaoP = null; });
+  }
+  return state.faltasEdicaoP;
+}
+
+function wlExtrasBlocos(setId) {
+  const s = state.faltasEdicao?.sets?.find(x => x.set === setId);
+  if (!s) return [];
+  return WL_EXTRAS.map(e => {
+    const g = e.id === 'foil' ? s.foil : s.blocks.find(b => b.id === e.id);
+    // Uma edição sem nenhuma carta neste bloco (o OGS não tem OverNumbered)
+    // não ganha uma caixa a dizer «não falta nada» — não há nada para faltar.
+    return g && g.scope ? { ...e, s, g } : null;
+  }).filter(Boolean);
+}
+
+function wlExtrasHTML(setId) {
+  if (!state.faltasEdicao) {
+    garanteFaltasEdicao().then(() => renderWantlists()).catch(() => {});
+    return '<p class="empty">a preparar as wantlists da OverNumbered e das foils…</p>';
+  }
+  const nome = state.payload?.set?.name || setId;
+  return wlExtrasBlocos(setId).map(({ dom, s, g }) => {
+    const itens = feWantlistItens(g);
+    const titulo = `Wantlist Cardmarket — ${escapeHTML(nome)} · ${escapeHTML(g.label)}`;
+    if (!itens.length) {
+      return `<section class="wl-bloco" id="${dom}">
+        <h2 class="section-head wl-head">${titulo}</h2>
+        <p class="empty">Não falta nada — não há nada para comprar aqui.</p></section>`;
+    }
+    const w = g.wantlist || {};
+    const linhas = w.lines != null ? w.lines : itens.length;
+    const copias = w.copies != null ? w.copies : itens.reduce((n, x) => n + cmQtd(x), 0);
+    const cents = w.cents != null ? w.cents : itens.reduce((n, x) => n + (x.total || 0), 0);
+    const nota = g.id === 'foil'
+      ? `As <b>foils</b> que faltam desta edição — as comuns e incomuns, ao
+         playset do tipo em foil (${escapeHTML(g.target_label || '')}). É a
+         mesma lista da metade das foils no separador <a href="#faltas-edicao">Faltas</a>.`
+      : `As <b>OverNumbered</b> que faltam desta edição, 1 de cada. É a mesma
+         lista do bloco OverNumbered no separador <a href="#faltas-edicao">Faltas</a>.`;
+    return `<section class="wl-bloco" id="${dom}">
+      <h2 class="section-head wl-head">${titulo}
+        <span>${plural(linhas, 'linha', 'linhas')} · ${plural(copias, 'cópia', 'cópias')}${
+          semEuros() ? '' : ` · ${eur(cents)}`}</span></h2>
+      <p class="note">${nota}</p>
+      ${cmZonaHTML(dom + '-cm')}</section>`;
+  }).join('');
+}
+
+function wlExtrasLigar(setId) {
+  for (const { dom, s, g } of wlExtrasBlocos(setId)) {
+    const itens = feWantlistItens(g);
+    if (!itens.length || !$(`#${dom}-cm-txt`)) continue;
+    cmLigar(dom + '-cm', () => feWantlistItens(g),
+            `riftvault-faltas-${s.set}-${g.id}-${hojeISO()}.csv`);
+    cmMostrar(dom + '-cm', itens, false,
+              { foco: false, copiar: false, foilTodas: g.id === 'foil' });
+  }
 }
 
 function wlBloco(id, titulo, itens, nota, nivel) {
