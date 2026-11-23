@@ -1882,10 +1882,12 @@ function tileFoilEstado(pid) {
    mostres as coisas separadas, as que faltam de master set / as que faltam
    Foil / as que faltam ON / as que faltam Alt.Art / as Runas que faltam"*.
    Com o filtro «Faltas» a grelha deixa os blocos da coleção e sai nestas
-   quatro secções, por esta ordem; as runas são a quinta, no bloco das runas
+   secções, por esta ordem; as runas são a quinta, no bloco das runas
    logo a seguir (`renderRunasVista`), porque são o contador dele e não o
    `copies`. Uma carta pode estar em duas secções (faltam-lhe normais E foils).
-   As promos não são falta (sem alvo, 2026-10-15) e não têm secção.
+   As PROMOS: as que têm alvo (1 de cada) também podem faltar; ele não as
+   nomeou, por isso a secção delas só aparece quando falta alguma — senão uma
+   promo nova em falta sumia das faltas sem aviso. As de alvo 0 nunca faltam.
    É SÓ o que a grelha mostra: nenhuma conta muda. */
 const FALTAS_SECCOES = [
   { id: 'master', label: 'Faltas · Master set', alvo: 'playset',
@@ -1897,6 +1899,8 @@ const FALTAS_SECCOES = [
     entra: p => p.block === 'overnumbered' && normalEmFalta(p.id) },
   { id: 'alt_art', label: 'Faltas · Alt Art', alvo: 'playset',
     entra: p => p.block === 'alt_art' && normalEmFalta(p.id) },
+  { id: 'special', label: 'Faltas · Promos', alvo: '1 de cada', soSeHouver: true,
+    entra: p => p.block === 'special' && normalEmFalta(p.id) },
 ];
 
 function renderFaltas() {
@@ -1904,9 +1908,12 @@ function renderFaltas() {
   const grupos = state.payload?.groups || [];
   for (const s of FALTAS_SECCOES) {
     const pedacos = [];
-    let cartas = 0, copias = 0, edicao = null;
+    let cartas = 0, copias = 0, escondidas = 0, edicao = null;
     for (const g of grupos) {
       const list = visiblePrintings(g).filter(s.entra);
+      // A procura, «Só artes base» e os tipos podem esconder faltas; sem as
+      // contar, a secção dizia «não falta nada» com faltas por baixo.
+      escondidas += g.printings.filter(s.entra).length - list.length;
       if (!list.length) continue;
       if (g.set && g.set !== edicao && state.setId === TODAS) {
         edicao = g.set;
@@ -1921,10 +1928,13 @@ function renderFaltas() {
         pedacos.push(`<div class="group">${tileHTML(g, p, false, !!s.foil)}</div>`);
       }
     }
-    const resumo = cartas
+    if (s.soSeHouver && !cartas && !escondidas) continue;
+    const resumo = (cartas
       ? `faltam <b>${copias}</b> ${copias === 1 ? 'cópia' : 'cópias'} de <b>${cartas}</b> ${
           cartas === 1 ? 'carta' : 'cartas'} · ${s.alvo}`
-      : 'não falta nada';
+      : escondidas ? 'nenhuma à vista' : 'não falta nada')
+      + (escondidas ? ` · <b>${escondidas}</b> ${escondidas === 1 ? 'escondida' : 'escondidas'
+          } pela procura ou pelos filtros` : '');
     parts.push(`<h2 class="section-head ${s.id === 'master' ? 'cauda' : 'fora'} faltas-seccao"
       id="faltas-${s.id}">${escapeHTML(s.label)}
       <span>${resumo}${s.nota ? ` — ${s.nota}` : ''}</span></h2>`);
