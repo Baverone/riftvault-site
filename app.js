@@ -46,6 +46,9 @@ const state = {
   // do tipo). É uma contagem À PARTE do `tot` e **nunca se soma a ele no
   // tile**: o crachá é as normais, esta linha é o foil.
   foil: new Map(), foilOk: new Set(), foilAlvo: new Map(),
+  // As impressões que a Coleção conta EM FOIL (2026-11-23, `so_foil`): o `qty`
+  // delas são foils, e o crachá di-lo.
+  soFoil: new Set(),
   // Os dois preços por impressão, em cêntimos. O da FOIL (2026-09-26, à tarde)
   // só existe nas que o CardTrader tem em foil: quem não está lá conta ao preço
   // da normal — o FALLBACK, que se marca na linha e faz do valor um piso.
@@ -338,8 +341,8 @@ const PAGINA = {
          + ajudaListasDeCompra(),
   },
   'faltas-edicao': {
-    sub: 'O que falta para fechar cada edição, em duas metades — as normais em '
-       + 'quatro blocos e as foils à parte, cada uma com a sua wantlist.',
+    sub: 'O que falta para fechar cada edição, bloco a bloco, cada um com a sua '
+       + 'wantlist. Desde 23/11/2026 as comuns e incomuns contam-se em foil.',
     ajuda: '<p><b>As normais</b>, em quatro blocos por edição: <b>Master set</b>, '
          + '<b>OverNumbered</b>, <b>Alt Art</b> e <b>Promos</b>, pela mesma ordem da '
          + 'Coleção. Cada um tem a sua caixa do Cardmarket, já preenchida.</p>'
@@ -1159,7 +1162,7 @@ async function loadSet(setId, { url = true } = {}) {
 
   state.qty.clear(); state.play.clear(); state.targets.clear();
   state.blocks.clear(); state.meta.clear(); state.counting.clear();
-  state.locs.clear(); state.tot.clear(); state.foil.clear(); state.foilOk.clear();
+  state.locs.clear(); state.tot.clear(); state.foil.clear(); state.foilOk.clear(); state.soFoil.clear();
   state.foilAlvo.clear();
   state.preco.clear(); state.precoFoil.clear(); state.valNorm.clear();
   for (const b of p.blocks || []) if (b.counts) state.counting.add(b.id);
@@ -1171,6 +1174,7 @@ async function loadSet(setId, { url = true } = {}) {
       state.tot.set(pr.id, pr.qty_total || 0);
       if (pr.foil) state.foil.set(pr.id, pr.foil);
       if (pr.foil_ok) state.foilOk.add(pr.id);
+      if (pr.so_foil) state.soFoil.add(pr.id);
       if (pr.foil_target) state.foilAlvo.set(pr.id, pr.foil_target);
       state.valNorm.set(pr.id, (pr.qty_valor || 0) - (pr.qty_valor_foil || 0));
       if (pr.price != null) state.preco.set(pr.id, pr.price);
@@ -1641,7 +1645,7 @@ function tileHTML(g, p, comUso = false, modoFoil = false) {
   const fe = modoFoil ? tileFoilEstado(p.id) : null;
   const st = fe ? fe.st : tileState(p.id);
   const play = state.play.get(g.card_key) || { owned: 0, target: 0 };
-  const badge = fe ? fe.badge : (t > 0 ? `${q}/${t}` : `${q}`);
+  const badge = fe ? fe.badge : crachaNormal(p.id, q, t);
   const alt = imgAlt(p);
 
   return `<div class="tile ${st}" data-pid="${escapeAttr(p.id)}" data-ck="${escapeAttr(g.card_key)}"${
@@ -1863,6 +1867,13 @@ function foilEmFalta(pid) {
   return t > 0 && (state.foil.get(pid) || 0) < t;
 }
 
+/* O crachá do tile: `q/t`, e com «foil» à frente nas impressões que a Coleção
+   conta em foil (2026-11-23, `so_foil`) — o número são foils, e tem de se ler. */
+function crachaNormal(pid, q, t) {
+  const n = t > 0 ? `${q}/${t}` : `${q}`;
+  return state.soFoil.has(pid) ? `foil ${n}` : n;
+}
+
 /* As NORMAIS em falta: tem alvo e ainda não chegou lá. */
 function normalEmFalta(pid) {
   return (state.targets.get(pid) || 0) > 0 && tileState(pid) !== 'done';
@@ -1893,6 +1904,7 @@ const FALTAS_SECCOES = [
   { id: 'master', label: 'Faltas · Master set', alvo: 'playset',
     entra: p => (p.block || 'master') === 'master' && normalEmFalta(p.id) },
   { id: 'foil', label: 'Faltas · Foil', alvo: 'playset do tipo, em foil', foil: true,
+    soSeHouver: true,   // com a Coleção só em foil não há foils à parte (2026-11-23)
     nota: 'as foils não contam para a percentagem de master set',
     entra: p => foilEmFalta(p.id) },
   { id: 'overnumbered', label: 'Faltas · OverNumbered', alvo: '1 de cada',
@@ -3159,7 +3171,7 @@ function refreshTiles(pid, cardKey) {
     const focused = el.classList.contains('focus');
     const fe = el.dataset.modo === 'foil' ? tileFoilEstado(pid) : null;
     el.className = `tile ${fe ? fe.st : tileState(pid)}${focused ? ' focus' : ''} flash`;
-    el.querySelector('.badge').textContent = fe ? fe.badge : (t > 0 ? `${q}/${t}` : `${q}`);
+    el.querySelector('.badge').textContent = fe ? fe.badge : crachaNormal(pid, q, t);
     // O `−` baixa as NORMAIS, não o `qty` da Coleção (que desde 2026-09-26
     // pode trazer foils por cima) — ver o `qtyNormais`.
     el.querySelector('.step.minus').disabled = qtyNormais(pid) <= 0;
@@ -5252,7 +5264,8 @@ function renderInicio() {
   // (`index.levels_foil`, `foil.master_set_foil`): não há conta aqui.
   const nf = (ix.levels_foil || {}).levels || [];
   const playF = nf.find(l => l.k === 3);
-  if (nf.length) {
+  // Com a Coleção só em foil (2026-11-23) o cartão de cima JÁ é em foil.
+  if (nf.length && !ix.so_foil) {
     const umF = nf.find(l => l.k === 1);
     const doisF = nf.find(l => l.k === 2);
     cartoes += iniCartao('rox', 'colecao', 'Master set foil · playset',
@@ -5903,7 +5916,7 @@ function renderFaltasEdicao() {
     <h2 class="section-head fe-set">${escapeHTML(s.name)}
       <span data-fe-res="set:${escapeAttr(s.set)}">${feResumo(s)}</span></h2>
     ${s.foil ? feFoilMetade(s) : ''}
-    <p class="fe-metade normais">Normais — <b>as faltas</b></p>
+    ${feSemFoils() ? '' : '<p class="fe-metade normais">Normais — <b>as faltas</b></p>'}
     ${s.blocks.map(g => `
       <h3 class="section-head sub fe-bloco ${g.id}${g.in_lists ? '' : ' fe-ver'}">${escapeHTML(g.label)}
         <small>${escapeHTML(g.target_label)}${g.in_lists ? '' : ' · wantlist própria'}</small>
@@ -5953,7 +5966,7 @@ function renderFeCaixa(c) {
   $('#fe-body').innerHTML = `
     <h2 class="section-head fe-set">${escapeHTML(c.label)}
       <span data-fe-res="caixa:${escapeAttr(c.id)}">${feResumo(c)}</span></h2>
-    ${feSetDaCaixa(c) ? feFoilMetade(feSetDaCaixa(c))
+    ${feSetDaCaixa(c) && !feSemFoils() ? feFoilMetade(feSetDaCaixa(c))
       + '<p class="fe-metade normais">Normais — <b>as faltas</b></p>' : ''}
     ${c.items.length
       ? `<div class="grid deck-grid fe-grid">${c.items.map(feTile).join('')}</div>`
@@ -6290,7 +6303,16 @@ function feMarcaVelhos() {
 
 /* A metade das FOILS de uma edição: a mesma forma de um bloco, com o rótulo
    da metade por cima para não se confundir com as faltas. */
+/* COLEÇÃO SÓ EM FOIL (2026-11-23): sem foils à parte (o âmbito das foils está
+   vazio para ele — as comuns contam-se em foil na própria Coleção), a metade das
+   foils e o «Normais —» deixam de fazer sentido e não aparecem. */
+function feSemFoils() {
+  const sc = state.faltasEdicao && state.faltasEdicao.foil && state.faltasEdicao.foil.scope;
+  return !!sc && !sc.printings;
+}
+
 function feFoilMetade(s) {
+  if (feSemFoils()) return '';
   const g = s.foil;
   if (!g) return `<p class="fe-metade foil">Foils — <b>esta edição não tem
     impressões com contagem de foil</b> (fora do âmbito).</p>`;
@@ -6310,7 +6332,7 @@ function feFoilMetade(s) {
    impressões em que a foil está a tapar um buraco das normais. Nada disto
    soma aos números de cima — é o que ele quis dizer com «complemento». */
 function feFoilCabecalho(f) {
-  if (!f) return '';
+  if (!f || feSemFoils()) return '';
   const t = f.totals, s = f.scope, av = f.aviso_normais || [];
   return `<div class="fe-foil-resumo">
     <div class="deck-meta">
