@@ -49,6 +49,10 @@ const state = {
   // As impressões que a Coleção conta EM FOIL (2026-11-23, `so_foil`): o `qty`
   // delas são foils, e o crachá di-lo.
   soFoil: new Set(),
+  // As FOTOS DAS PÁGINAS do binder (2026-11-23): chave `SET|bloco|página` ->
+  // a última foto (`api/fotos_paginas.json`). `null` fora do modo edição — e
+  // aí a grelha sai exactamente como sempre, sem rebordos.
+  fotosPag: null,
   // Os dois preços por impressão, em cêntimos. O da FOIL (2026-09-26, à tarde)
   // só existe nas que o CardTrader tem em foil: quem não está lá conta ao preço
   // da normal — o FALLBACK, que se marca na linha e faz do valor um piso.
@@ -1152,13 +1156,21 @@ async function loadSet(setId, { url = true } = {}) {
   // Em «Todas» o painel aparece já com os números do servidor (vêm no
   // `index.json`), enquanto as edições carregam.
   if (setId === TODAS) renderPainel();
-  const p = setId === TODAS ? await loadTodas() : await getJSON(`api/set/${setId}.json`);
+  // As fotos das páginas vêm ao mesmo tempo, e só no modo edição: o site
+  // publicado não as tem (nem as pede). Se o pedido falhar, a grelha sai sem
+  // rebordos em vez de não sair.
+  const [p, fotos] = await Promise.all([
+    setId === TODAS ? loadTodas() : getJSON(`api/set/${setId}.json`),
+    state.editable ? getJSON('api/fotos_paginas.json').catch(() => null) : null,
+  ]);
   // Ele mudou de separador enquanto isto vinha: o que chegou já não é o que
   // está escolhido, e desenhá-lo punha a grelha de uma edição debaixo do
   // separador de outra.
   if (state.setId !== setId) return;
   state.payload = p;
   state.imageMode = p.image_mode || state.imageMode;
+  state.fotosPag = fotos ? new Map((fotos.paginas || []).map(
+    f => [chavePagina(f.set_id, f.bloco, f.pagina), f])) : null;
 
   state.qty.clear(); state.play.clear(); state.targets.clear();
   state.blocks.clear(); state.meta.clear(); state.counting.clear();
@@ -2421,6 +2433,11 @@ function render() {
     let naEdicao = 0;
     let feitas = 0, total = 0, alguma = 0, alvoMax = 0;
     let edicao = null;
+    // As FOTOS DAS PÁGINAS (2026-11-23): no modo edição, e só com o bloco
+    // inteiro no ecrã (a mesma regra das filas), cada página do binder sai
+    // dentro do seu rebordo. Sem isto, o HTML é o de sempre.
+    const pag = state.fotosPag && (filasDoBinder || emPaginas) && FOTO_PAGINA[b.id]
+      ? paginador(b.id, FOTO_PAGINA[b.id], pedacos) : null;
     for (const g of grupos) {
       const list = visiblePrintings(g).filter(p => (p.block || 'master') === b.id);
       if (!list.length) continue;
@@ -2428,6 +2445,7 @@ function render() {
       // fino cada vez que a edição muda dentro do bloco, senão o OGN-298 e o
       // OGS-001 ficavam colados sem nada a dizer que a edição acabou.
       if (g.set && g.set !== edicao) {
+        if (pag) pag.fechar();   // a página de uma edição não passa para a outra
         edicao = g.set;
         naEdicao = 0;
         pedacos.push(`<h3 class="section-head edicao">${escapeHTML(g.set_name || g.set)}</h3>`);
@@ -2453,9 +2471,13 @@ function render() {
         // disso.)
         list.forEach((p, i) => {
           state.tiles.push(p.id);
-          pedacos.push(`<div class="group">${tileHTML(g, p, i === 0)}</div>`);
+          const h = `<div class="group">${tileHTML(g, p, i === 0)}</div>`;
+          if (pag) pag.por(g.set || state.setId, naEdicao, p.id, h);
+          else pedacos.push(h);
           naEdicao++;
           if (naEdicao === BINDER_PRIMEIRA) {
+            // A página 1 é a primeira fila: fecha-se antes do calço.
+            if (pag) pag.fechar();
             pedacos.push('<div class="binder-gap" aria-hidden="true"></div>');
           }
         });
@@ -2465,11 +2487,14 @@ function render() {
         // Uma impressão, uma bolsa, como na sequência; e ao fechar uma página
         // a marca ocupa a fila inteira e diz o número da que começa.
         list.forEach((p, i) => {
+          state.tiles.push(p.id);
+          const h = `<div class="group">${tileHTML(g, p, i === 0)}</div>`;
+          // Com as fotos, o número da página vai no cabeçalho do rebordo.
+          if (pag) { pag.por(g.set || state.setId, naEdicao, p.id, h); naEdicao++; return; }
           if (naEdicao > 0 && naEdicao % porPagina === 0) {
             pedacos.push(`<div class="binder-pagina">página ${naEdicao / porPagina + 1}</div>`);
           }
-          state.tiles.push(p.id);
-          pedacos.push(`<div class="group">${tileHTML(g, p, i === 0)}</div>`);
+          pedacos.push(h);
           naEdicao++;
         });
         continue;
@@ -2482,6 +2507,7 @@ function render() {
         ? `<div class="group multi" style="--span:${list.length}">${inner}</div>`
         : `<div class="group">${inner}</div>`);
     }
+    if (pag) pag.fechar();
     if (!pedacos.length) continue;
     mostrados++;
     if (b.label) {
@@ -2524,12 +2550,184 @@ function render() {
   }
 
   grid.innerHTML = parts.join('');
+  refrescarPaginas();
   $('#empty').hidden = mostrados > 0;
   $('#count-line').textContent = `${state.tiles.length} impressões a mostrar`
     + (state.payload ? ` · ${state.payload.groups.length} cartas ${
       state.setId === TODAS ? 'nas edições todas' : 'na edição'}` : '');
   renderProgress();
   state.focus = -1;
+}
+
+/* ============================ as fotos das páginas do binder (2026-11-23)
+
+   André: *«para validar as cartas quero poder tirar fotos aos binders e
+   guardas / quando eu clico em + ou -, ele pede nova validação da página por
+   foto / … em volta de cada página fazes um rebordo / Verde se tiver tudo bem /
+   Amarelo se faltar validar (porque entrou ou saio alguma carta) / Vermelho se
+   não tem foto»*. E do master set: *«cada pagina leva 4 playsets»*.
+
+   A foto é a prova de que ELE conferiu a página — o site não a lê. Com ela o
+   servidor guarda as quantidades lidas da BASE nesse instante
+   (`fotos_paginas.guardar`); aqui compara-se com as de agora. Por quantidades
+   e não por datas: um `+` seguido de um `−` devolve a página ao verde, porque
+   a pasta ficou igual à foto. */
+
+/* Impressões por página, por bloco — o mesmo que o `fotos_paginas.BLOCOS`. As
+   ON e as Alt Art são as páginas de 2026-10-30; as promos e as runas não têm. */
+const FOTO_PAGINA = { master: 4, ...PAGINAS_DO_BLOCO };
+
+function chavePagina(set, bloco, n) { return `${set}|${bloco}|${n}`; }
+
+/* O estado de UMA página: `vermelho` sem foto; `verde` se as impressões são as
+   da foto e cada uma tem as mesmas cópias (na Coleção e foil); `amarelo` com
+   qualquer diferença. `deltas`: printing_id -> {q, f}, o que mudou desde a foto. */
+function estadoPagina(ids, foto) {
+  const deltas = new Map();
+  if (!foto) return { estado: 'vermelho', deltas };
+  let igual = ids.length === foto.ids.length && ids.every((id, i) => id === foto.ids[i]);
+  for (const id of ids) {
+    const [q0, f0] = (foto.qtd && foto.qtd[id]) || [0, 0];
+    const q = (state.qty.get(id) || 0) - q0;
+    const f = (state.foil.get(id) || 0) - f0;
+    if (q || f) { deltas.set(id, { q, f }); igual = false; }
+  }
+  return { estado: igual ? 'verde' : 'amarelo', deltas };
+}
+
+/* Junta os tiles de uma página e escreve-a quando ela fecha. `naEdicao` é a
+   posição da impressão na edição (antes dela), e é ela que diz a página. */
+function paginador(bloco, porPagina, pedacos) {
+  let set = null, n = 0, ids = [], html = [];
+  const fechar = () => {
+    if (ids.length) pedacos.push(paginaHTML(set, bloco, n, ids, html.join('')));
+    ids = []; html = [];
+  };
+  return {
+    por(setId, naEdicao, pid, h) {
+      const nova = Math.floor(naEdicao / porPagina) + 1;
+      if (setId !== set || nova !== n) { fechar(); set = setId; n = nova; }
+      ids.push(pid); html.push(h);
+    },
+    fechar,
+  };
+}
+
+function paginaHTML(set, bloco, n, ids, tiles) {
+  return `<section class="pag-foto" data-chave="${escapeHTML(chavePagina(set, bloco, n))}"
+    data-set="${escapeHTML(set)}" data-bloco="${escapeHTML(bloco)}" data-pagina="${n}"
+    data-ids="${escapeHTML(ids.join(' '))}">
+    <header class="pag-cab"><b>página ${n}</b> <span class="pag-estado"></span>
+      <span class="pag-botoes"><button type="button" class="pag-ver" hidden>🖼 ver foto</button><button
+        type="button" class="pag-cam">📷 tirar foto</button></span></header>
+    <div class="pag-grelha">${tiles}</div>
+  </section>`;
+}
+
+function dataCurta(iso) {
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' });
+}
+
+function sinal(n) { return n > 0 ? `+${n}` : `−${-n}`; }
+
+/* Pinta todas as páginas que estão no ecrã. Corre no fim do `render()` e do
+   `refreshTiles()` (a cada `+`/`−`) e depois de uma foto nova. São no máximo
+   umas 80 páginas por edição: refazê-las todas é mais simples do que saber
+   qual mudou, e não se nota. */
+function refrescarPaginas() {
+  if (!state.fotosPag) return;
+  for (const sec of document.querySelectorAll('#grid .pag-foto')) {
+    const ids = sec.dataset.ids.split(' ');
+    const foto = state.fotosPag.get(sec.dataset.chave) || null;
+    const { estado, deltas } = estadoPagina(ids, foto);
+    sec.classList.remove('verde', 'amarelo', 'vermelho');
+    sec.classList.add(estado);
+    const quando = foto ? dataCurta(foto.tirada_em) : '';
+    sec.querySelector('.pag-estado').textContent =
+      estado === 'vermelho' ? '🔴 sem foto'
+        : estado === 'verde' ? `🟢 foto de ${quando} · tudo igual`
+          : `🟡 mudou depois da foto de ${quando}`;
+    const ver = sec.querySelector('.pag-ver');
+    ver.hidden = !foto;
+    if (foto) ver.dataset.foto = foto.id;
+    // A carta que mudou: contorno e o delta, no `.group` — o `refreshTiles`
+    // reescreve as classes do `.tile` e apagava a marca.
+    for (const grp of sec.querySelectorAll('.pag-grelha > .group')) {
+      const d = deltas.get(grp.querySelector('.tile')?.dataset.pid);
+      grp.classList.toggle('pag-mudou', !!d);
+      if (d) {
+        grp.dataset.delta = [d.q ? sinal(d.q) : '', d.f ? `${sinal(d.f)} foil` : '']
+          .filter(Boolean).join(' ');
+      } else delete grp.dataset.delta;
+    }
+  }
+}
+
+/* O CSRF do `cabecalhos()`, sem o `Content-Type`: o do `multipart` (com a
+   fronteira) é o browser que o escreve. */
+function semTipo(h) {
+  delete h['Content-Type'];
+  return h;
+}
+
+async function enviarFotoPagina(sec, ficheiro) {
+  const btn = sec.querySelector('.pag-cam');
+  btn.disabled = true;
+  btn.textContent = 'a enviar…';
+  const corpo = new FormData();
+  corpo.append('ficheiro', ficheiro);
+  corpo.append('set_id', sec.dataset.set);
+  corpo.append('bloco', sec.dataset.bloco);
+  corpo.append('pagina', sec.dataset.pagina);
+  corpo.append('ids', JSON.stringify(sec.dataset.ids.split(' ')));
+  try {
+    const r = await fetch('api/fotos_paginas', { method: 'POST', headers: semTipo(cabecalhos()), body: corpo });
+    // Um 413 ou um 502 do túnel vem em HTML, não em JSON.
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    state.fotosPag.set(chavePagina(j.set_id, j.bloco, j.pagina), j);
+    // As quantidades da foto são as DA BASE. Se o ecrã estava atrasado (um `+`
+    // no PC, a CLI), passam a ser as do ecrã — senão a página acabada de
+    // fotografar saía amarela com um delta inventado (revisão final).
+    for (const [pid, [q, f]] of Object.entries(j.qtd || {})) {
+      if ((state.qty.get(pid) || 0) === q && (state.foil.get(pid) || 0) === f) continue;
+      state.qty.set(pid, q);
+      if (f) state.foil.set(pid, f); else state.foil.delete(pid);
+      refreshTiles(pid, state.meta.get(pid)?.card_key);
+    }
+    toast(`Foto da página ${j.pagina} guardada.`);
+  } catch (err) {
+    toast(`A foto não foi guardada: ${err.message}`, { error: true });
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📷 tirar foto';
+    refrescarPaginas();
+  }
+}
+
+function wireFotosPaginas() {
+  // UM `input` para a grelha toda; a página a que a foto pertence fica
+  // guardada no clique. O `capture` abre logo a câmara de trás no telemóvel.
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.setAttribute('capture', 'environment');
+  input.hidden = true;
+  document.body.appendChild(input);
+  let alvo = null;
+  input.addEventListener('change', () => {
+    const f = input.files && input.files[0];
+    if (f && alvo) enviarFotoPagina(alvo, f);
+  });
+  $('#grid').addEventListener('click', (e) => {
+    const cam = e.target.closest('.pag-cam');
+    if (cam) { alvo = cam.closest('.pag-foto'); input.value = ''; input.click(); return; }
+    const ver = e.target.closest('.pag-ver');
+    if (ver && ver.dataset.foto) {
+      window.open(`api/fotos_paginas/${ver.dataset.foto}.jpg`, '_blank', 'noopener');
+    }
+  });
 }
 
 function renderProgress() {
@@ -3196,6 +3394,8 @@ function refreshTiles(pid, cardKey) {
       el.classList.toggle('is-done', play.target > 0 && play.owned >= play.target);
     }
   }
+  // O rebordo da página muda no mesmo clique (fotos das páginas, 2026-11-23).
+  refrescarPaginas();
   renderProgress();
 }
 
@@ -3380,6 +3580,7 @@ function wireControls() {
     else adjust(tile.dataset.pid, Number(btn.dataset.act));
   });
   wireMaisExtra($('#grid'));
+  wireFotosPaginas();
 
   // Imagem local em falta cai para o CDN (e vice-versa no modo publicado).
   // Qualquer secção com artes tem de estar nesta lista: uma imagem que o cache

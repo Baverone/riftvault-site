@@ -584,6 +584,54 @@ h1.pgt { margin: 0; font-size: clamp(21px, 2.6vw, 27px); font-weight: 700; lette
 /* Fecha a primeira fila nas 4: ocupa as outras 4 colunas e empurra a 5.ª
    carta para a fila de baixo. Não se vê nem se lê. */
 .binder-gap { grid-column: span 4; }
+
+/* As FOTOS DAS PÁGINAS (André, 2026-11-23): no modo edição, cada página do
+   binder sai num rebordo — verde com a foto em dia, amarelo se alguma cópia
+   entrou ou saiu depois dela, vermelho sem foto. Uma página ocupa as 4
+   colunas da sua metade (na sequência de 8) ou a fila toda (nas de 4), e os
+   tiles dela vão numa grelha de 4 por dentro. O `minmax(0, …)` deixa-os
+   encolher o que o rebordo ocupa, em vez de empurrar a pasta para o lado. */
+.grid.binder .pag-foto { grid-column: span 4; }
+.pag-foto {
+  min-width: 0;
+  border: 3px solid var(--line2); border-radius: 12px;
+  padding: 6px 8px 8px; background: var(--card);
+}
+.pag-foto.verde { border-color: var(--ok); }
+.pag-foto.amarelo { border-color: var(--warn); }
+.pag-foto.vermelho { border-color: var(--bad); }
+.pag-cab {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
+  margin-bottom: 6px; font-size: 12px;
+}
+.pag-estado { color: var(--muted); }
+.pag-botoes { margin-left: auto; display: flex; gap: 6px; }
+/* No telemóvel a página é quase da largura do ecrã e os botões, encostados à
+   direita, ficavam meio cortados: passam para uma linha sua, à esquerda. */
+@media (max-width: 700px) {
+  .pag-botoes { margin-left: 0; flex-basis: 100%; }
+}
+.pag-botoes button {
+  font: inherit; font-size: 12px; padding: 3px 8px; cursor: pointer;
+  border-radius: 8px; border: 1px solid var(--accent-line);
+  background: var(--accent-soft); color: var(--ink);
+}
+/* O botão que ele tem de carregar destaca-se na cor da página. */
+.pag-foto.vermelho .pag-cam { background: var(--bad); border-color: var(--bad); color: #200; font-weight: 600; }
+.pag-foto.amarelo .pag-cam { background: var(--warn); border-color: var(--warn); color: #201500; font-weight: 600; }
+.pag-grelha {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--binder-gap);
+}
+/* A carta que mudou depois da foto: contorno e o delta («+1», «−1 foil»). */
+.pag-mudou { position: relative; }
+.pag-mudou > .tile { outline: 3px solid var(--warn); outline-offset: 1px; }
+.pag-mudou::after {
+  content: attr(data-delta);
+  position: absolute; top: 4px; right: 4px; z-index: 2; pointer-events: none;
+  background: var(--warn); color: #201500; font-weight: 700; font-size: 12px;
+  padding: 1px 5px; border-radius: 6px;
+}
 .binder-nota {
   grid-column: 1 / -1;
   margin: 0 0 2px; font-size: 12px; color: var(--dim); line-height: 1.5;
