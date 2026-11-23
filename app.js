@@ -1573,7 +1573,13 @@ function visiblePrintings(group) {
   // para juntar: a pergunta é sempre a mesma, o que é que ainda me falta.
   if (state.prefs.stateFilter === 'missing') {
     // Sem alvo (as promos, 2026-10-15) nunca é falta: não pede nada.
-    list = list.filter(p => (state.targets.get(p.id) || 0) > 0 && tileState(p.id) !== 'done');
+    // As FOILS em falta também aparecem (André, 2026-11-23: *"as faltas de
+    // radiance […] não aparece as foils / preciso que as faltas estejam
+    // disponíveis para todos verem, em cada aba de edição e em todas"*). É só
+    // o que a grelha MOSTRA: nenhum número muda, e as foils continuam fora da
+    // contagem de faltas, da percentagem e das listas de compra.
+    list = list.filter(p => ((state.targets.get(p.id) || 0) > 0 && tileState(p.id) !== 'done')
+                            || foilEmFalta(p.id));
   }
   // "Em decks" é por CARTA, não por impressão: a alocação é por carta lógica
   // e o rótulo «Azir 3 · Kennen 2» é do grupo inteiro (2026-09-11).
@@ -1809,6 +1815,14 @@ function venderLinha(pid) {
    lê-se «4/3»), e trava só no `limite` que o servidor manda.                */
 
 function foilLimite() { return state.index?.foil?.limite || 9999; }
+
+/* Uma impressão no âmbito das foils com menos foils do que o playset do tipo:
+   a mesma pergunta da metade das foils do separador Faltas. */
+function foilEmFalta(pid) {
+  if (!state.foilOk.has(pid)) return false;
+  const t = state.foilAlvo.get(pid) || 0;
+  return t > 0 && (state.foil.get(pid) || 0) < t;
+}
 
 function foilLinha(pid) {
   if (!state.foilOk.has(pid)) return '';
