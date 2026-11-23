@@ -1306,12 +1306,46 @@ async function renderRunasVista(reler = false) {
     try { state.runas = await getJSON('api/runas.json'); }
     catch (err) { el.innerHTML = ''; return; }
   }
+  if (state.prefs.stateFilter === 'missing') {
+    el.innerHTML = runasFaltasHTML();
+    ligarRunas();
+    return;
+  }
   const v = runasDaEdicao();
   if (!v || !(v.runas || []).length) { el.innerHTML = ''; return; }
   // Os tiles vão directos na grelha (o `#runas-vista` é uma `.grid`), sem o
   // `.group.multi`: um grupo de 6 colunas não cabe no telemóvel.
   el.innerHTML = runasHead(v) + runasAviso() + v.runas.map(x => runaTile(x, v)).join('');
   ligarRunas();
+}
+
+/* A QUINTA SECÇÃO DAS FALTAS (2026-11-23): as runas que faltam, pelo contador
+   DELE (o número de cada edição contra as 12 de cada). Numa edição, as dela,
+   com os `+`/`−` no modo edição; em «Todas», as de cada edição, uma a uma
+   (não a soma: 12 de cada é por edição) e sem botões, como o bloco de sempre. */
+function runasFaltasHTML() {
+  const p = state.runas;
+  if (!p || !p.por_edicao) return '';
+  const sid = edicaoAberta();
+  if (sid && !p.por_edicao[sid]) return '';   // o OGS não tem runas
+  const fatias = sid ? [p.por_edicao[sid]] : Object.values(p.por_edicao);
+  let cartas = 0, copias = 0;
+  const corpo = [];
+  for (const f of fatias) {
+    const falta = (f.runas || []).filter(x => runaContador(x) < x.target);
+    if (!falta.length) continue;
+    if (!sid) corpo.push(`<h3 class="section-head edicao">${escapeHTML(f.set_id)}</h3>`);
+    for (const x of falta) {
+      cartas++;
+      copias += x.target - runaContador(x);
+      corpo.push(runaTile(x, f, !sid));
+    }
+  }
+  const resumo = cartas
+    ? `faltam <b>${copias}</b> ${copias === 1 ? "cópia" : "cópias"} de <b>${cartas}</b> ${cartas === 1 ? "runa" : "runas"} · ${p.alvo} de cada, pelo teu contador de cada edição`
+    : 'não falta nada';
+  return `<h2 class="section-head fora vista faltas-seccao" id="faltas-runas">Faltas · Runas
+      <span>${resumo} — não contam para nada</span></h2>${corpo.join('')}`;
 }
 
 /* O AVISO DO ZERO (2026-10-03): o contador foi reposto para passar a ser por
@@ -1375,7 +1409,7 @@ function runasHead(v) {
 
 /* Recebe a VISTA a par do item: é o `v.set_id` que decide se há botões — o
    contador é por edição, e em «Todas» não há onde somar o clique. */
-function runaTile(x, v) {
+function runaTile(x, v, semBotoes = false) {
   const n = runaContador(x);
   const feito = n >= x.target;
   // As origens só no `title`: a linha visível é a referência curta, para não
@@ -1384,7 +1418,8 @@ function runaTile(x, v) {
     .join(' · ') || 'nenhuma à mão';
   const sem = x.sem_retiradas !== x.total ? ` (${x.sem_retiradas} sem as retiradas)` : '';
   const onde = v && v.set_id ? 'nesta edição' : 'na coleção';
-  const botoes = state.runas && state.runas.editable && x.contador != null && v && v.set_id
+  const botoes = semBotoes ? ''
+    : state.runas && state.runas.editable && x.contador != null && v && v.set_id
     ? `<div class="steppers runa">
       <button class="step minus" data-runa-delta="-1" ${n > 0 ? '' : 'disabled'}
               aria-label="menos uma no teu contador de ${escapeAttr(x.name)} em ${escapeAttr(v.set_id)}"
@@ -1417,6 +1452,8 @@ function ligarRunas() {
 }
 
 function runaRefreshTile(ck) {
+  // Nas faltas, uma runa que chegou às 12 sai da secção: desenha-se outra vez.
+  if (state.prefs.stateFilter === 'missing') { renderRunasVista(); return; }
   const el = document.querySelector(`#runas-vista .dtile[data-runa="${CSS.escape(ck)}"]`);
   const v = runasDaEdicao();
   const x = v && v.runas.find(r => r.card_key === ck);
@@ -1598,15 +1635,17 @@ function imgAlt(p) {
   return state.imageMode === 'remote' ? (p.img || '') : (p.cdn || '');
 }
 
-function tileHTML(g, p, comUso = false) {
+function tileHTML(g, p, comUso = false, modoFoil = false) {
   const q = state.qty.get(p.id) || 0;
   const t = state.targets.get(p.id) || 0;
-  const st = tileState(p.id);
+  const fe = modoFoil ? tileFoilEstado(p.id) : null;
+  const st = fe ? fe.st : tileState(p.id);
   const play = state.play.get(g.card_key) || { owned: 0, target: 0 };
-  const badge = t > 0 ? `${q}/${t}` : `${q}`;
+  const badge = fe ? fe.badge : (t > 0 ? `${q}/${t}` : `${q}`);
   const alt = imgAlt(p);
 
-  return `<div class="tile ${st}" data-pid="${escapeAttr(p.id)}" data-ck="${escapeAttr(g.card_key)}">
+  return `<div class="tile ${st}" data-pid="${escapeAttr(p.id)}" data-ck="${escapeAttr(g.card_key)}"${
+    modoFoil ? ' data-modo="foil"' : ''}>
     <div class="art${p.landscape ? ' landscape' : ''}">
       <img src="${imgSrc(p)}" alt="${escapeAttr(p.name)}" loading="lazy" decoding="async"
            ${alt ? `data-fallback="${escapeAttr(alt)}"` : ''}>
@@ -1824,6 +1863,76 @@ function foilEmFalta(pid) {
   return t > 0 && (state.foil.get(pid) || 0) < t;
 }
 
+/* As NORMAIS em falta: tem alvo e ainda não chegou lá. */
+function normalEmFalta(pid) {
+  return (state.targets.get(pid) || 0) > 0 && tileState(pid) !== 'done';
+}
+
+/* O estado e o crachá de um tile da secção «Foil» das faltas: o que conta ali
+   são as foils, e o crachá das normais (que estaria a 3/3, a verde) lia-se
+   «não falta nada». */
+function tileFoilEstado(pid) {
+  const f = state.foil.get(pid) || 0;
+  const t = state.foilAlvo.get(pid) || 0;
+  const st = f <= 0 ? 'none' : (f >= t ? 'done' : 'partial');
+  return { st, badge: `foil ${f}/${t}` };
+}
+
+/* AS FALTAS EM BLOCOS SEPARADOS (André, 2026-11-23): *"o que eu quero é que
+   mostres as coisas separadas, as que faltam de master set / as que faltam
+   Foil / as que faltam ON / as que faltam Alt.Art / as Runas que faltam"*.
+   Com o filtro «Faltas» a grelha deixa os blocos da coleção e sai nestas
+   quatro secções, por esta ordem; as runas são a quinta, no bloco das runas
+   logo a seguir (`renderRunasVista`), porque são o contador dele e não o
+   `copies`. Uma carta pode estar em duas secções (faltam-lhe normais E foils).
+   As promos não são falta (sem alvo, 2026-10-15) e não têm secção.
+   É SÓ o que a grelha mostra: nenhuma conta muda. */
+const FALTAS_SECCOES = [
+  { id: 'master', label: 'Faltas · Master set', alvo: 'playset',
+    entra: p => (p.block || 'master') === 'master' && normalEmFalta(p.id) },
+  { id: 'foil', label: 'Faltas · Foil', alvo: 'playset do tipo, em foil', foil: true,
+    nota: 'as foils não contam para a percentagem de master set',
+    entra: p => foilEmFalta(p.id) },
+  { id: 'overnumbered', label: 'Faltas · OverNumbered', alvo: '1 de cada',
+    entra: p => p.block === 'overnumbered' && normalEmFalta(p.id) },
+  { id: 'alt_art', label: 'Faltas · Alt Art', alvo: 'playset',
+    entra: p => p.block === 'alt_art' && normalEmFalta(p.id) },
+];
+
+function renderFaltas() {
+  const parts = [];
+  const grupos = state.payload?.groups || [];
+  for (const s of FALTAS_SECCOES) {
+    const pedacos = [];
+    let cartas = 0, copias = 0, edicao = null;
+    for (const g of grupos) {
+      const list = visiblePrintings(g).filter(s.entra);
+      if (!list.length) continue;
+      if (g.set && g.set !== edicao && state.setId === TODAS) {
+        edicao = g.set;
+        pedacos.push(`<h3 class="section-head edicao">${escapeHTML(g.set_name || g.set)}</h3>`);
+      }
+      for (const p of list) {
+        cartas++;
+        copias += s.foil
+          ? (state.foilAlvo.get(p.id) || 0) - (state.foil.get(p.id) || 0)
+          : (state.targets.get(p.id) || 0) - (state.qty.get(p.id) || 0);
+        state.tiles.push(p.id);
+        pedacos.push(`<div class="group">${tileHTML(g, p, false, !!s.foil)}</div>`);
+      }
+    }
+    const resumo = cartas
+      ? `faltam <b>${copias}</b> ${copias === 1 ? 'cópia' : 'cópias'} de <b>${cartas}</b> ${
+          cartas === 1 ? 'carta' : 'cartas'} · ${s.alvo}`
+      : 'não falta nada';
+    parts.push(`<h2 class="section-head ${s.id === 'master' ? 'cauda' : 'fora'} faltas-seccao"
+      id="faltas-${s.id}">${escapeHTML(s.label)}
+      <span>${resumo}${s.nota ? ` — ${s.nota}` : ''}</span></h2>`);
+    parts.push(pedacos.join(''));
+  }
+  return parts;
+}
+
 function foilLinha(pid) {
   if (!state.foilOk.has(pid)) return '';
   const f = state.foil.get(pid) || 0;
@@ -1983,6 +2092,12 @@ function refreshFoil(pid) {
     const linha = el.querySelector('.foil-linha');
     const novo = foilLinha(pid);
     if (linha) linha.outerHTML = novo;
+    if (el.dataset.modo === 'foil') {
+      const fe = tileFoilEstado(pid);
+      el.classList.remove('none', 'partial', 'done');
+      el.classList.add(fe.st);
+      el.querySelector('.badge').textContent = fe.badge;
+    }
   }
 }
 
@@ -2256,6 +2371,16 @@ function render() {
   const grupos = state.payload?.groups || [];
   const blocos = state.payload?.blocks || [{ id: BLOCO_BINDER, label: null }];
   let mostrados = 0;
+
+  // Com o filtro «Faltas» a grelha sai nas secções das faltas (2026-11-23).
+  if (state.prefs.stateFilter === 'missing') {
+    grid.innerHTML = renderFaltas().join('');
+    $('#empty').hidden = true;
+    $('#count-line').textContent = `${new Set(state.tiles).size} impressões com faltas`;
+    renderProgress();
+    state.focus = -1;
+    return;
+  }
 
   const binder = binderCheio();
 
@@ -3022,8 +3147,9 @@ function refreshTiles(pid, cardKey) {
     const q = state.qty.get(pid) || 0;
     const t = state.targets.get(pid) || 0;
     const focused = el.classList.contains('focus');
-    el.className = `tile ${tileState(pid)}${focused ? ' focus' : ''} flash`;
-    el.querySelector('.badge').textContent = t > 0 ? `${q}/${t}` : `${q}`;
+    const fe = el.dataset.modo === 'foil' ? tileFoilEstado(pid) : null;
+    el.className = `tile ${fe ? fe.st : tileState(pid)}${focused ? ' focus' : ''} flash`;
+    el.querySelector('.badge').textContent = fe ? fe.badge : (t > 0 ? `${q}/${t}` : `${q}`);
     // O `−` baixa as NORMAIS, não o `qty` da Coleção (que desde 2026-09-26
     // pode trazer foils por cima) — ver o `qtyNormais`.
     el.querySelector('.step.minus').disabled = qtyNormais(pid) <= 0;
@@ -3259,6 +3385,7 @@ function wireControls() {
       state.prefs.stateFilter = b.dataset.state; savePrefs();
       document.querySelectorAll('.seg-btn[data-state]').forEach(x => x.classList.toggle('is-on', x === b));
       render();
+      renderRunasVista();   // a secção das runas das faltas (2026-11-23)
     };
   }
 
